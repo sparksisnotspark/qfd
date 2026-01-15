@@ -1,0 +1,39 @@
+[package]
+name = "qfd"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "qfd_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thirtyfour = "0.36.1"
+reqwest = { version="0.12.24", features= ["blocking", "json"] }
+tokio = {version="1", features= ["full"] }
+thirtyfour_query = "0.6.1"
+tauri-plugin-store = "2"
+tauri-plugin-machine-uid = "0.1.2"
+lazy-regex = "3.4.2"
+thiserror = "2.0.17"
+rang = "0.1.1"
+rand = "0.9.2"
+mac_address = "1.1.8"
+
+[dependencies.tauri-plugin-sql]
+features = ["sqlite"] # or "postgres", or "mysql"
+version = "2.0.0"
