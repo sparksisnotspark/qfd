@@ -166,7 +166,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { onMounted, reactive, ref } from "vue";
 
 import { ElForm, ElMessage } from "element-plus";
-import { api_login, api_rechage, api_register, api_unbound } from "./../api.js";
+import { api_login, api_rechage, api_register, api_unbound, init_sqlite_db } from "./../api.js";
 import { useAppStore } from "./../store.js";
 import { useRouter } from "vue-router";
 const activeName = ref("login");
@@ -267,29 +267,33 @@ onMounted(async () => {
     }
 });
 
-const loadingTimeout = (loading, value) => {
-    setTimeout(() => {
-        loading.value = value;
-    }, 300);
-};
 const unboundHandler = async () => {
     loginLoading.value = true;
     try {
-        let mac_address = await fetch_mac_address();
-        let params = {...unboundInfo, mac_address};
+        let machine_id = await fetch_mac_address();
+        let params = {...unboundInfo, machine_id};
         console.log("unbound send params is: ", params);
-        let res = await api_unbound({ ...unboundInfo, mac_address });
+        let res = await api_unbound({ ...unboundInfo, machine_id});
         console.log("解绑结果", res);
         if(res.code == 0) {
             ElMessage.success(res.msg);
         } else {
             ElMessage.warning(res.msg);
         }
+        loginLoading.value = false;
     } catch (e) {
-        console.log(e);
-        loadingTimeout(loginLoading, false);
+        ElMessage.error(e);
+        setTimeout(() => {
+            loginLoading.value = false;
+        }, 1000);
     }
 };
+
+const loadingTimeout = async (l, value) => {
+    setTimeout(() => {
+        l.value = value;
+    }, 300);
+}
 
 const rechargeHandler = async () => {
     loginLoading.value = true;

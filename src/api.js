@@ -9,7 +9,7 @@ const API_URL = "http://193.134.211.160:8787";
 const service = axios.create({ baseURL: API_URL, timeout: 5000 });
 
 export const init_sqlite_db = async (db) => {
-    sql = `CREATE TABLE IF NOT EXISTS history(
+    let sql_string = `CREATE TABLE IF NOT EXISTS history(
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				dy_name TEXT,
 				dy_account TEXT,
@@ -27,7 +27,7 @@ export const init_sqlite_db = async (db) => {
 				task_msg TEXT,
 				UNIQUE(seq, create_at)
   )`;
-    await db.execute(sql);
+    await db.execute(sql_string);
 };
 export const init_browser_seq = async (windows) => {
     for (const w of windows) {

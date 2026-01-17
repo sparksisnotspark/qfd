@@ -292,7 +292,6 @@
                                     inline-prompt
                                     active-text="采集中..."
                                     inactive-text="开启采集"
-                                    :loading="cjLoading"
                                     :before-change="cjBFHandler"
                                 ></el-switch>
                             </div>
@@ -437,7 +436,7 @@
                                 <p>总房间数: {{ total }}</p>
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
-                                <el-button type="text" @click="showLog">查看日志</el-button>
+                                <el-button link @click="showLog">查看日志</el-button>
                             </div>
                         </div>
                     </el-aside>
@@ -509,9 +508,11 @@ import { db, getDb } from "../db";
 import { history } from "../db/schema";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher } from "../api";
+import { db_action_dispatcher, init_sqlite_db } from "../api";
+import { load } from "@tauri-apps/plugin-store";
+import { lo } from "element-plus/es/locales.mjs";
 
-const max_legth = 50;
+const max_length = 50;
 const logs = ref([]);
 
 const loggerRef = ref(null);
@@ -521,6 +522,7 @@ const total = ref(0);
 const allowed_count = ref(0);
 const showLogDiv = ref(false);
 const fd_count = ref(0);
+const cookiesList = ref([]);
 
 const showLog = async () => {
     showLogDiv.value = !showLogDiv.value;
@@ -547,29 +549,10 @@ const getMacAddress = async () => {
     }
 };
 
-const test_fetch_live = async () => {
-    try {
-        let res = await invoke("test_fetch_live", {
-            params: JSON.stringify({
-                group_id: groupSelection.value,
-                thread_number: browserOptions.thread_number,
-                up_limit: browserOptions.up_limit,
-                second_prize_rate: browserOptions.second_prize_rate,
-                enable_second_check: browserOptions.enable_second_check,
-                loop_run: browserOptions.loop_run,
-                tp: browserOptions.tp,
-            }),
-        });
-        console.log("---------", res);
-    } catch (e) {
-        console.log("error of live", e);
-    }
-};
-
 watch(
     logs,
     (newVal) => {
-        if (newVal.length > max_legth) {
+        if ( newVal.length > max_length ) {
             logs.value = newVal.slice(newVal.length - max_length, max_length);
         }
     },
@@ -592,7 +575,6 @@ const cookiesForm = reactive({
     cookie: "",
 });
 const saveCookieLoading = ref(false);
-let cookiesList = ref([]);
 let spiderEditDisabled = ref(false);
 
 const currentPage = ref(1);
@@ -615,6 +597,7 @@ const saveCookieHandle = async () => {
         try {
             cookiesList.value.push({ ck: cookiesForm.cookie + "" });
             await store.setStoreKey("cookies", cookiesList.value);
+            cookiesForm.cookie = "";
             ElMessage.success("保存成功");
             setTimeout(() => {
                 saveCookieLoading.value = false;
@@ -643,10 +626,12 @@ const deleteCookieHandle = async (d) => {
 const loadCookies = async () => {
     try {
         let res = await store.loadStoreKey("cookies");
-        console.log(res);
-        cookiesList.value = res;
+        console.log("load cookies result is: ", res);
+        if(res != undefined) {
+            cookiesList.value = res;
+        }    
     } catch (e) {
-        console.log(e, "error for this");
+        console.log(e, "load cookies error for this");
     }
 };
 
@@ -786,7 +771,6 @@ const startAutomation = async () => {
                         can_used_times: browserOptions.can_used_times,
                     }),
                 });
-                console.log("res of this execute info: ", res);
                 ElMessage.success("自动化运行已启动");
             } catch (error) {
                 console.error("Error invoking browser_group_windows:", error);
@@ -810,35 +794,42 @@ const startAutomation = async () => {
 };
 
 const cjBFHandler = () => {
-    cjLoading.value = true;
 
     return new Promise((resolve, reject) => {
-        cjLoading.value = false;
         ElMessageBox.confirm("请确认您的操作", "确认", {
             type: "warning",
         }).then(
             async () => {
                 let hasRun = spiderOptions.enable_spider;
+                console.log("go here");
                 if (hasRun) {
+                    console.log("has running");
                     spiderEditDisabled.value = false;
-                    cjLoading.value = true;
                     await invoke("sync_stop_spider");
                     ElMessage.success("采集停止成功");
+                    return resolve(true);
                 } else {
                     //采集未启动，则启动采集
+                    console.log("not running");
                     spiderEditDisabled.value = true;
-                    console.log("--", browserOptions.tp);
-                    await invoke("sync_start_spider", {
-                        options: spiderOptions,
-                        gatherType: browserOptions.tp,
-                    });
-                    ElMessage.success("采集运行成功");
+                    try {
+                        let res = await invoke("sync_start_spider", {
+                            options: spiderOptions,
+                            gatherType: browserOptions.tp,
+                        });
+                        console.log("spider is staring", res);
+                        ElMessage.success("采集运行成功");
+                        return resolve(true);
+                    } catch (e) {
+                        console.log("catch error some error?", res);
+                        ElMessage.error(e);
+                        return reject(false);
+                    }
                 }
-                cjLoading.value = false;
-                return resolve(true);
             },
             (r) => {
                 console.log("取消了任务");
+                ElMessage.error("取消或拒绝了采集");
                 return reject(r);
             },
         );
@@ -979,10 +970,8 @@ const fetchGroups = async () => {
             ElMessage.warning("没有分组，或者分组为空");
         }
         groups.value = res;
-        console.log("BitBrowser groups:", res);
         loading.close();
     } catch (error) {
-        console.error("Error invoking fetch_bitbrowser_group:", error);
         loading.close();
         ElMessage.error("获取分组失败，请检查您的比特浏览器是否有开启");
     }
@@ -997,30 +986,69 @@ const openCKManager = () => {
 
 let intervalId = null;
 
+let init_db = async () => {
+    let db = await getDb();
+    let _ = init_sqlite_db(db);
+    console.log("init db success!");
+}
+
+const loadParameters = async () => {
+    let res = await store.loadStoreKey(task_store_key);
+    if(res == undefined) {
+        return;
+    }
+
+    try {
+        Object.keys(res.windowOptions).forEach((key) => {
+            windowOptions[key] = res.windowOptions[key];
+        });
+        Object.keys(res.spiderOptions).forEach((key) => {
+            spiderOptions[key] = res.spiderOptions[key];
+        });
+        Object.keys(res.browserOptions).forEach((key) => {
+            browserOptions[key] = res.browserOptions[key];
+        });
+    } catch (e) {
+        console.log("error for load params", e);
+    }
+};
+
+
+let dbListener = null;
+let spiderListener = null;
+let logListener = null;
+
 onMounted(async () => {
+    await init_db(); //初始化数据
     await fetchGroups();
     intervalId = setInterval(async () => {
         await searchHandler();
     }, 2000);
 
     try {
-        let res = await store.loadStoreKey(task_store_key);
-        console.log(res, "默认参数获得中");
         await loadCookies();
-        await searchHandler();
+        await loadParameters();
     } catch (e) {
         console.log("exception for loading default params!");
     }
-    listen("spider", async (event) => {
+
+    disableRefresh();
+
+    spiderListener = listen("spider", async (event) => {
         console.log("update for somethings??");
         allowed_count.value = event.payload.allowed_count;
         fd_count.value = event.payload.fd_count;
         total.value = event.payload.total;
     });
-    let log = listen("log", async (event) => {
+
+    logListener = listen("log", async (event) => {
         console.log("log event is: ", event.payload);
         logs.value.push(event.payload);
         scrollToBottom();
+    });
+
+    dbListener = listen("db", async (event) => {
+        await db_action_dispatcher(event);
     });
 
 });
@@ -1029,6 +1057,17 @@ onUnmounted(() => {
     if (intervalId) {
         clearInterval(intervalId);
     }
+
+    spiderListener.then((unlisten) => {
+        unlisten();
+    });
+    logListener.then((unlisten) => {
+        unlisten();
+    }); 
+
+    dbListener.then((unlisten) => {
+        unlisten();
+    });
 });
 
 const flexable_windows = async () => {
@@ -1068,9 +1107,17 @@ const logoutHandler = async () => {
     }
 };
 
-let unlisten = listen("db", async (event) => {
-    await db_action_dispatcher(event);
-});
+const disableRefresh = () => {
+    document.addEventListener("keydown", function (e) {
+        if ((e.key === "F5") || (e.ctrlKey && e.key === "r")) {
+            e.preventDefault();
+        }
+    });
+    document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+    });
+}
+
 </script>
 
 <style lang="less" scoped>
