@@ -2,186 +2,58 @@
     <div class="main" style="padding: 10px">
         <el-tabs v-model="activeName" size="small">
             <el-tab-pane label="详细数据" name="records" style="width: 100%">
-                <el-form
-                    size="small"
-                    :model="searchOptions"
-                    :inline="true"
-                    class="demo-form-inline"
-                >
+                <el-form size="small" :model="searchOptions" :inline="true" class="demo-form-inline">
                     <el-form-item>
-                        <el-input
-                            style="width: 120px"
-                            v-model="searchOptions.dy_name"
-                            placeholder="抖音名称"
-                            clearable
-                        />
+                        <el-input style="width: 120px" v-model="searchOptions.dy_name" placeholder="抖音名称" clearable />
                     </el-form-item>
                     <el-form-item>
-                        <el-input
-                            placeholder="抖音号"
-                            v-model="searchOptions.dy_account"
-                            clearable
-                        />
+                        <el-input placeholder="抖音号" v-model="searchOptions.dy_account" clearable />
                     </el-form-item>
                     <el-form-item>
-                        <el-date-picker
-                            v-model="searchOptions.create_at"
-                            placeholder="选择日期"
-                            type="date"
-                        />
+                        <el-date-picker v-model="searchOptions.create_at" placeholder="选择日期" type="date" />
                     </el-form-item>
                     <el-form-item>
-                        <el-button
-                            type="primary"
-                            :icon="Search"
-                            @click="searchHandler"
-                            >查询</el-button
-                        >
-                        <el-button type="info" @click="onSubmit"
-                            >重置</el-button
-                        >
-                        <el-button type="danger" @click="onSubmit"
-                            >清空所有数据</el-button
-                        >
+                        <el-button type="primary" :icon="Search" @click="searchHandler">查询</el-button>
+                        <el-button type="info" @click="onSubmit">重置</el-button>
+                        <el-button type="danger" @click="onSubmit">清空所有数据</el-button>
                     </el-form-item>
                 </el-form>
-                <el-table
-                    :data="userHistory"
-                    size="small"
-                    style="width: 100%"
-                    max-height="600"
-                    border
-                    show-summary
-                    :summary-method="sumHistory"
-                >
-                    <el-table-column
-                        type="selection"
-                        width="50"
-                        align="center"
-                        label="#"
-                    />
-                    <el-table-column
-                        prop="seq"
-                        label="C#"
-                        align="center"
-                        width="50"
-                        show-overflow-tooltip
-                    />
-                    <el-table-column
-                        prop="dy_name"
-                        label="抖音名称"
-                        width="80"
-                        align="center"
-                        show-overflow-tooltip
-                    />
-                    <el-table-column
-                        prop="dy_account"
-                        label="抖音号"
-                        width="100"
-                        align="center"
-                        show-overflow-tooltip
-                    />
+                <el-table :data="userHistory" size="small" style="width: 100%" max-height="600" border show-summary
+                    :summary-method="sumHistory">
+                    <el-table-column type="selection" width="50" align="center" label="#" />
+                    <el-table-column prop="seq" label="C#" align="center" width="50" show-overflow-tooltip />
+                    <el-table-column prop="dy_name" label="抖音名称" width="80" align="center" show-overflow-tooltip />
+                    <el-table-column prop="dy_account" label="抖音号" width="100" align="center" show-overflow-tooltip />
 
-                    <el-table-column
-                        prop="task_name"
-                        label="任务名称"
-                        align="center"
-                        width="100"
-                    />
-                    <el-table-column
-                        prop="task_msg"
-                        min-width="200"
-                        label="任务信息"
-                        show-overflow-tooltip
-                    />
-                    <el-table-column
-                        prop="canyu_count"
-                        label="FD参与数"
-                        width="100"
-                        align="center"
-                        sortable
-                    />
+                    <el-table-column prop="task_name" label="任务名称" align="center" width="100" />
+                    <el-table-column prop="task_msg" min-width="200" label="任务信息" show-overflow-tooltip />
+                    <el-table-column prop="canyu_count" label="FD参与数" width="100" align="center" sortable />
 
-                    <el-table-column
-                        prop="win_count"
-                        label="FD中次数"
-                        width="100"
-                        align="center"
-                        sortable
-                    />
+                    <el-table-column prop="win_count" label="FD中次数" width="100" align="center" sortable />
 
-                    <el-table-column
-                        prop="huode_diamond_count"
-                        label="FD获得钻石"
-                        align="center"
-                        width="120"
-                        sortable
-                    />
+                    <el-table-column prop="huode_diamond_count" label="FD获得钻石" align="center" width="120" sortable />
 
-                    <el-table-column
-                        prop="hongbao_canyu_count"
-                        label="HB参与数"
-                        align="center"
-                        width="100"
-                        sortable
-                    />
-                    <el-table-column
-                        prop="hongbao_win_count"
-                        label="HB中次数"
-                        align="center"
-                        width="100"
-                        sortable
-                    />
+                    <el-table-column prop="hongbao_canyu_count" label="HB参与数" align="center" width="100" sortable />
+                    <el-table-column prop="hongbao_win_count" label="HB中次数" align="center" width="100" sortable />
 
-                    <el-table-column
-                        prop="hongbao_huode_diamond_count"
-                        label="HB得钻石"
-                        width="100"
-                        align="center"
-                        sortable
-                    />
+                    <el-table-column prop="hongbao_huode_diamond_count" label="HB得钻石" width="100" align="center"
+                        sortable />
 
-                    <el-table-column
-                        prop="xiaohao_diamond_count"
-                        label="消耗数量"
-                        width="100"
-                        align="center"
-                        sortable
-                    />
-                    <el-table-column
-                        prop="count_num"
-                        fixed="right"
-                        align="center"
-                        label="实时"
-                        sortable
-                        width="80"
-                    />
-                    <el-table-column
-                        prop="create_at"
-                        fixed="right"
-                        label="查询时间"
-                        width="100"
-                    />
+                    <el-table-column prop="xiaohao_diamond_count" label="消耗数量" width="100" align="center" sortable />
+                    <el-table-column prop="count_num" fixed="right" align="center" label="实时" sortable width="80" />
+                    <el-table-column prop="create_at" fixed="right" label="查询时间" width="100" />
                 </el-table>
-                <div
-                    style="
+                <div style="
                         text-align: center;
                         margin-top: 10px;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                    "
-                >
-                    <el-pagination
-                        layout="total,sizes,prev,pager,next,jumper"
-                        v-model:current-page="currentPage"
-                        v-model:page-size="pageSize"
-                        :page-sizes="[30, 60, 100]"
-                        size="small"
-                        :total="historyTotal"
+                    ">
+                    <el-pagination layout="total,sizes,prev,pager,next,jumper" v-model:current-page="currentPage"
+                        v-model:page-size="pageSize" :page-sizes="[30, 60, 100]" size="small" :total="historyTotal"
                         @size-change="historyPagerSizeChange"
-                        @current-change="historyPagerCurrentChange"
-                    ></el-pagination>
+                        @current-change="historyPagerCurrentChange"></el-pagination>
                 </div>
             </el-tab-pane>
             <el-tab-pane label="福袋任务" name="task">
@@ -191,82 +63,46 @@
                             <p>选择分组</p>
                             <div>
                                 <el-form :disabled="groupSelectFormDisabled">
-                                <el-checkbox-group v-model="groupSelection">
-                                    <el-checkbox
-                                        v-for="group in groups"
-                                        :key="group"
-                                        :value="group[0]"
-                                        >{{ group[1] }}</el-checkbox
-                                    >
-                                </el-checkbox-group>
+                                    <el-checkbox-group v-model="groupSelection">
+                                        <el-checkbox v-for="group in groups" :key="group" :value="group[0]">{{ group[1]
+                                            }}</el-checkbox>
+                                    </el-checkbox-group>
                                 </el-form>
                             </div>
 
                             <p>浏览器功能配置</p>
                             <div>
-                                <el-form
-                                    size="small"
-                                    v-model="browserOptions"
-                                    :inline="true"
-                                    :label-position="top"
-                                    :disabled="browserOptionsDisabled"
-                                    label-width="100px"
-                                    class="browser-config-form"
-                                >
+                                <el-form size="small" v-model="browserOptions" :inline="true" :label-position="top"
+                                    :disabled="browserOptionsDisabled" label-width="100px" class="browser-config-form">
                                     <el-form-item label="任务类型">
-                                        <el-radio-group
-                                            v-model="browserOptions.tp"
-                                        >
-                                            <el-radio
-                                                value="hb"
-                                                label="红包"
-                                            ></el-radio>
-                                            <el-radio
-                                                value="fd"
-                                                label="福袋"
-                                            ></el-radio>
+                                        <el-radio-group v-model="browserOptions.tp">
+                                            <el-radio value="hb" label="红包"></el-radio>
+                                            <el-radio value="fd" label="福袋"></el-radio>
                                         </el-radio-group>
                                     </el-form-item>
 
                                     <!--一般是比特浏览器的数量大一点-->
                                     <el-form-item label="线程数量">
-                                        <el-input-number
-                                            style="width: 100px"
-                                            v-model="
-                                                browserOptions.thread_number
-                                            "
-                                            :min="1"
-                                            :max="50"
-                                            placeholder="线程数量"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number style="width: 100px" v-model="browserOptions.thread_number
+                                            " :min="1" :max="50" placeholder="线程数量" type="number"></el-input-number>
                                     </el-form-item>
 
                                     <el-form-item label="二次奖概率">
-                                        <el-input-number
-                                            v-model="
-                                                browserOptions.second_prize_rate
-                                            "
-                                            style="width: 100px"
-                                            placeholder="二次中奖概率"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number v-model="browserOptions.second_prize_rate
+                                            " style="width: 100px" placeholder="二次中奖概率"
+                                            type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="启用二次检查">
-                                        <el-switch
-                                            v-model="
-                                                browserOptions.enable_second_check
-                                            "
-                                        ></el-switch>
+                                        <el-switch v-model="browserOptions.enable_second_check
+                                            "></el-switch>
                                     </el-form-item>
                                     <el-form-item label="循环运行">
-                                        <el-switch
-                                            v-model="browserOptions.loop_run"
-                                        ></el-switch>
+                                        <el-switch v-model="browserOptions.loop_run"></el-switch>
                                     </el-form-item>
 
                                     <el-form-item label="下发次数">
-                                        <el-input-number v-model="browserOptions.can_used_times" type="number" placeholder="下发次数"/>
+                                        <el-input-number v-model="browserOptions.can_used_times" type="number"
+                                            placeholder="下发次数" />
                                     </el-form-item>
 
                                 </el-form>
@@ -274,103 +110,49 @@
                         </div>
 
                         <div class="config-box mb-10">
-                            <div
-                                style="
+                            <div style="
                                     display: flex;
                                     margin-bottom: 10px;
                                     justify-content: space-between;
                                     align-items: center;
                                     border-bottom: 1px solid #eee;
-                                "
-                            >
-                                <span style="font-weight: bold"
-                                    >是否开启采集功能?
+                                ">
+                                <span style="font-weight: bold">是否开启采集功能?
                                 </span>
-                                <el-switch
-                                    size="small"
-                                    v-model="spiderOptions.enable_spider"
-                                    inline-prompt
-                                    active-text="采集中..."
-                                    inactive-text="开启采集"
-                                    :before-change="cjBFHandler"
-                                ></el-switch>
+                                <el-switch size="small" v-model="spiderOptions.enable_spider" inline-prompt
+                                    active-text="采集中..." inactive-text="开启采集" :before-change="cjBFHandler"></el-switch>
                             </div>
                             <div>
-                                <el-form
-                                    v-model="spiderOptions"
-                                    :disabled="spiderEditDisabled"
-                                    :inline="true"
-                                    :label-position="top"
-                                    size="small"
-                                    label-width="100px"
-                                    class="collector-config-form"
-                                >
+                                <el-form v-model="spiderOptions" :disabled="spiderEditDisabled" :inline="true"
+                                    :label-position="top" size="small" label-width="100px"
+                                    class="collector-config-form">
                                     <el-form-item label="多线程数量">
-                                        <el-input-number
-                                            style="width: 100px"
-                                            v-model="
-                                                spiderOptions.thread_number
-                                            "
-                                            :min="1"
-                                            :max="5"
-                                            placeholder="采集线程数量"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number style="width: 100px" v-model="spiderOptions.thread_number
+                                            " :min="1" :max="5" placeholder="采集线程数量" type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="中奖比例">
-                                        <el-input-number
-                                            :min="1"
-                                            v-model="
-                                                spiderOptions.winning_ratio
-                                            "
-                                            :max="100"
-                                            style="width: 100px"
-                                            placeholder="中奖比例"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number :min="1" v-model="spiderOptions.winning_ratio
+                                            " :max="100" style="width: 100px" placeholder="中奖比例"
+                                            type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="人数限制">
-                                        <el-input-number
-                                            v-model="spiderOptions.people_limit"
-                                            style="width: 100px"
-                                            :min="1"
-                                            :max="9999"
-                                            placeholder="人数限制"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number v-model="spiderOptions.people_limit" style="width: 100px"
+                                            :min="1" :max="9999" placeholder="人数限制" type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="最小时间(秒)">
-                                        <el-input-number
-                                            style="width: 120px"
-                                            v-model="spiderOptions.min_time"
-                                            :min="1"
-                                            :max="9999"
-                                            placeholder="最小时间"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number style="width: 120px" v-model="spiderOptions.min_time" :min="1"
+                                            :max="9999" placeholder="最小时间" type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="最大时间(秒)">
-                                        <el-input-number
-                                            style="width: 120px"
-                                            :min="1"
-                                            :max="9999"
-                                            v-model="spiderOptions.max_time"
-                                            placeholder="最大时间"
-                                            type="number"
-                                        ></el-input-number>
+                                        <el-input-number style="width: 120px" :min="1" :max="9999"
+                                            v-model="spiderOptions.max_time" placeholder="最大时间"
+                                            type="number"></el-input-number>
                                     </el-form-item>
 
                                     <el-form-item label="最小人均钻石">
-                                        <el-input-number
-                                            style="width: 100px"
-                                            :min="1"
-                                            :max="100"
-                                            type="number"
-                                            placeholder="最小人均钻石"
-                                            v-model="
-                                                spiderOptions.min_avg_diamond
-                                            "
-                                        ></el-input-number>
+                                        <el-input-number style="width: 100px" :min="1" :max="100" type="number"
+                                            placeholder="最小人均钻石" v-model="spiderOptions.min_avg_diamond
+                                                "></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="只采集大包">
                                         <el-switch v-model="spiderOptions.only_big_packet"></el-switch>
@@ -379,12 +161,8 @@
                                         <el-switch v-model="spiderOptions.join_fans_group"></el-switch>
                                     </el-form-item>
                                     <el-form-item label="直播广场CK">
-                                        <el-button
-                                            style="width: 200px"
-                                            type="primary"
-                                            @click="openCKManager"
-                                            >管理CK</el-button
-                                        >
+                                        <el-button style="width: 200px" type="primary"
+                                            @click="openCKManager">管理CK</el-button>
                                     </el-form-item>
                                 </el-form>
                             </div>
@@ -393,14 +171,8 @@
                         <div class="config-box">
                             <p>窗口整理配置</p>
                             <div>
-                                <el-form
-                                    size="small"
-                                    v-model="windowOptions"
-                                    :inline="true"
-                                    :label-position="top"
-                                    label-width="100px"
-                                    class="window-config-form"
-                                >
+                                <el-form size="small" v-model="windowOptions" :inline="true" :label-position="top"
+                                    label-width="100px" class="window-config-form">
                                     <el-form-item label="自动排列窗口">
                                         <el-switch v-model="windowOptions.auto_arrange"></el-switch>
                                     </el-form-item>
@@ -410,7 +182,7 @@
                                     </el-form-item>
 
                                     <el-form-item label="Y坐标偏移">
-                                        <el-input-number value="15" v-model="windowOptions.y_offset"></el-input-number> 
+                                        <el-input-number value="15" v-model="windowOptions.y_offset"></el-input-number>
                                     </el-form-item>
 
                                     <el-form-item label="手动操作">
@@ -422,13 +194,18 @@
                     </el-main>
                     <el-aside width="140px">
                         <div class="control-box" style="margin-top: 20px">
-                            <el-button class="cb" type="primary" size="small" :icon="VideoPlay" :loading="startAutomationLoading" @click="startAutomation" :disabled="start_btn_disabled" >启动自动化</el-button>
-                            <el-button class="cb" type="danger" size="small" :icon="VideoPause" @click="stopAutomation" >停止自动化</el-button> 
-                            <el-button class="cb" type="primary" size="small" :icon="VideoPlay" @click="re_start_automation">启动未成功窗口</el-button>
-                            <el-button class="cb" type="info" size="small" @click="fetchGroups" >获取分组</el-button>
+                            <el-button class="cb" type="primary" size="small" :icon="VideoPlay"
+                                :loading="startAutomationLoading" @click="startAutomation"
+                                :disabled="start_btn_disabled">启动自动化</el-button>
+                            <el-button class="cb" type="danger" size="small" :icon="VideoPause"
+                                @click="stopAutomation">停止自动化</el-button>
+                            <el-button class="cb" type="primary" size="small" :icon="VideoPlay"
+                                @click="re_start_automation">启动未成功窗口</el-button>
+                            <el-button class="cb" type="info" size="small" @click="fetchGroups">获取分组</el-button>
                             <el-button class="cb" type="info" size="small" @click="flexable_windows">排列窗口</el-button>
-                            <el-button class="cb" size="small" type="success" @click="saveSettings" >保存参数</el-button>
-                            <el-button class="cb" size="small" type="primary" @click="logoutHandler" :icon="User" :loading="logoutLoading" >用户退出</el-button>
+                            <el-button class="cb" size="small" type="success" @click="saveSettings">保存参数</el-button>
+                            <el-button class="cb" size="small" type="primary" @click="logoutHandler" :icon="User"
+                                :loading="logoutLoading">用户退出</el-button>
                         </div>
                         <div>
                             <div class="bt-c">
@@ -445,42 +222,22 @@
         </el-tabs>
 
         <el-dialog v-model="showCookieManagerDialog">
-            <el-form
-                :model="cookiesForm"
-                label-width="100"
-                size="small"
-                inline
-                ref="cookieFormRef"
-                style="width: 500px"
-            >
+            <el-form :model="cookiesForm" label-width="100" size="small" inline ref="cookieFormRef"
+                style="width: 500px">
                 <el-form-item prop="cookie">
-                    <el-input
-                        v-model="cookiesForm.cookie"
-                        placeholder="输入广场cookie"
-                        clearable
-                    ></el-input>
+                    <el-input v-model="cookiesForm.cookie" placeholder="输入广场cookie" clearable></el-input>
                 </el-form-item>
 
                 <el-form-item>
-                    <el-button
-                        type="primary"
-                        @click="saveCookieHandle"
-                        :loading="saveCookieLoading"
-                        >保存</el-button
-                    >
+                    <el-button type="primary" @click="saveCookieHandle" :loading="saveCookieLoading">保存</el-button>
                 </el-form-item>
             </el-form>
             <el-table size="small" border :data="cookiesList">
                 <el-table-column prop="ck" show-overflow-tooltip label="内容" />
                 <el-table-column label="操作" width="80" align="center">
                     <template #default="scope">
-                        <el-button
-                            link
-                            type="danger"
-                            size="small"
-                            @click.prevent="deleteCookieHandle(scope.$index)"
-                            >删除</el-button
-                        >
+                        <el-button link type="danger" size="small"
+                            @click.prevent="deleteCookieHandle(scope.$index)">删除</el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -504,13 +261,10 @@ import {
 } from "@element-plus/icons-vue";
 import { useAppStore } from "./../store";
 import { useRouter } from "vue-router";
-import { db, getDb } from "../db";
-import { history } from "../db/schema";
+import { getDb } from "../db";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher, init_sqlite_db } from "../api";
-import { load } from "@tauri-apps/plugin-store";
-import { lo } from "element-plus/es/locales.mjs";
+import { db_action_dispatcher, init_sqlite_db, check_record_exists } from "../api";
 
 const max_length = 50;
 const logs = ref([]);
@@ -530,9 +284,11 @@ const showLog = async () => {
 
 const test_login_required = async () => {
     try {
-        let res = await invoke("test_login_required", {params: JSON.stringify({
-            group_id: groupSelection.value,
-        })});
+        let res = await invoke("test_login_required", {
+            params: JSON.stringify({
+                group_id: groupSelection.value,
+            })
+        });
         console.log("---------", res);
     } catch (e) {
         console.log("error of login required", e);
@@ -552,7 +308,7 @@ const getMacAddress = async () => {
 watch(
     logs,
     (newVal) => {
-        if ( newVal.length > max_length ) {
+        if (newVal.length > max_length) {
             logs.value = newVal.slice(newVal.length - max_length, max_length);
         }
     },
@@ -627,9 +383,9 @@ const loadCookies = async () => {
     try {
         let res = await store.loadStoreKey("cookies");
         console.log("load cookies result is: ", res);
-        if(res != undefined) {
+        if (res != undefined) {
             cookiesList.value = res;
-        }    
+        }
     } catch (e) {
         console.log(e, "load cookies error for this");
     }
@@ -684,6 +440,7 @@ const windowOptions = reactive({
     y_offset: 15, //Y坐标偏移
 });
 
+
 const task_store_key = "task_store_key";
 
 const onSubmit = () => {
@@ -726,8 +483,8 @@ const re_start_automation = async () => {
                         enable_second_check: browserOptions.enable_second_check,
                         loop_run: browserOptions.loop_run,
                         tp: browserOptions.tp,
-                        join_fans_group:spiderOptions.join_fans_group,
-                        can_used_times: browserOptions.can_used_times, 
+                        join_fans_group: spiderOptions.join_fans_group,
+                        can_used_times: browserOptions.can_used_times,
                     }),
                 });
                 console.log("重新启动未成功窗口结果:", res);
@@ -767,7 +524,7 @@ const startAutomation = async () => {
                         enable_second_check: browserOptions.enable_second_check,
                         loop_run: browserOptions.loop_run,
                         tp: browserOptions.tp,
-                        join_fans_group:spiderOptions.join_fans_group,
+                        join_fans_group: spiderOptions.join_fans_group,
                         can_used_times: browserOptions.can_used_times,
                     }),
                 });
@@ -801,27 +558,23 @@ const cjBFHandler = () => {
         }).then(
             async () => {
                 let hasRun = spiderOptions.enable_spider;
-                console.log("go here");
                 if (hasRun) {
-                    console.log("has running");
                     spiderEditDisabled.value = false;
                     await invoke("sync_stop_spider");
                     ElMessage.success("采集停止成功");
                     return resolve(true);
                 } else {
                     //采集未启动，则启动采集
-                    console.log("not running");
-                    spiderEditDisabled.value = true;
                     try {
+                        spiderEditDisabled.value = true;
                         let res = await invoke("sync_start_spider", {
                             options: spiderOptions,
                             gatherType: browserOptions.tp,
                         });
-                        console.log("spider is staring", res);
                         ElMessage.success("采集运行成功");
                         return resolve(true);
                     } catch (e) {
-                        console.log("catch error some error?", res);
+                        spiderEditDisabled.value = false;
                         ElMessage.error(e);
                         return reject(false);
                     }
@@ -861,7 +614,8 @@ const stopAutomation = async () => {
                     message: error.message,
                 });
             }
-            spiderEditDisabled.value = false;
+            browserOptionsDisabled.value = false;
+            groupSelectFormDisabled.value = false;
             start_btn_disabled.value = false;
         },
     );
@@ -994,7 +748,7 @@ let init_db = async () => {
 
 const loadParameters = async () => {
     let res = await store.loadStoreKey(task_store_key);
-    if(res == undefined) {
+    if (res == undefined) {
         return;
     }
 
@@ -1003,8 +757,11 @@ const loadParameters = async () => {
             windowOptions[key] = res.windowOptions[key];
         });
         Object.keys(res.spiderOptions).forEach((key) => {
-            spiderOptions[key] = res.spiderOptions[key];
+            if (key != "enable_spider") {
+                spiderOptions[key] = res.spiderOptions[key];
+            }
         });
+
         Object.keys(res.browserOptions).forEach((key) => {
             browserOptions[key] = res.browserOptions[key];
         });
@@ -1051,6 +808,18 @@ onMounted(async () => {
         await db_action_dispatcher(event);
     });
 
+    window.addEventListener("beforeunload", (e) => {
+        e.preventDefault();
+        ElMessageBox.confirm("确定要退出程序吗？", "确认", { type: "warning" }).then(() => {
+            store.logout().then(() => {
+                console.log("logout success");
+            })
+        }).catch(() => {
+            console.log("Got Some Error");
+        });
+        e.returnValue = "";
+    });
+
 });
 
 onUnmounted(() => {
@@ -1063,7 +832,7 @@ onUnmounted(() => {
     });
     logListener.then((unlisten) => {
         unlisten();
-    }); 
+    });
 
     dbListener.then((unlisten) => {
         unlisten();
@@ -1092,7 +861,7 @@ const window_bounds = async () => {
     }
 };
 
-const saveSettings = async () => {};
+const saveSettings = async () => { };
 
 const logoutLoading = ref(false);
 const logoutHandler = async () => {
@@ -1158,9 +927,11 @@ p {
     flex-direction: row;
     flex-wrap: wrap;
 }
+
 .spider-runing {
     color: green;
 }
+
 .config-box {
     border: 1px solid #eee;
     padding: 10px;
@@ -1226,15 +997,19 @@ p {
     padding: 0;
     margin: 0;
 }
+
 .bt-c {
     font-size: 12px;
+
     p {
         padding: 0 10px 10px 10px;
     }
+
     button {
         margin-left: 10px;
     }
 }
+
 .logger {
     position: absolute;
     bottom: 0;

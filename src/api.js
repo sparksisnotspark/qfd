@@ -56,11 +56,12 @@ export const db_action_dispatcher = async (event) => {
     let payload = event.payload;
     let action = payload.action;
     let seq = payload.seq;
-    let create_at = dayjs().format("YYYY-MM-DD");
-    console.log("payload is: ", "action", payload);
+    let create_at = payload.create_at ? payload.create_at : dayjs().format("YYYY-MM-DD");
+
     if ("init_seq" == action) {
         await init_browser_seq(payload.windows);
     }
+
     if ("insert" == action) {
         let dy_name = payload.dy_name;
         let dy_account = payload.dy_account;
@@ -79,11 +80,13 @@ export const db_action_dispatcher = async (event) => {
             console.log(e, "--------------------------------");
         }
     }
+
     if ("update" == action) {
         let updateClauses = []; // 用于存放 SQL 更新子句 (例如 "name = ?", "count = count + ?")
         let params = []; // 用于存放所有绑定的值
 
-        if (!check_record_exists(seq)) { //记录不存在
+        let exists = await check_record_exists(seq, create_at);
+        if (!exists) { //记录不存在
             let dy_name = payload.dy_name;
             let dy_account = payload.dy_account;
             let seq = payload.seq;
@@ -94,7 +97,6 @@ export const db_action_dispatcher = async (event) => {
                 console.log("exception for add new records for this");
             }
         }
-
         // --- 遍历 payload 来构建动态的 UPDATE 语句 ---
         for (const key in payload) {
             if (Object.prototype.hasOwnProperty.call(payload, key)) {
@@ -145,8 +147,11 @@ export const db_action_dispatcher = async (event) => {
     }
 };
 
-export const check_record_exists = async (seq) => {
-    let now = dayjs().format("YYYY-MM-DD");
+export const check_record_exists = async (seq, now) => {
+    if ( !now ) {
+        now = dayjs().format("YYYY-MM-DD");
+    }
+    console.log("check exists now is: ", now);
     let res = await db
         .select()
         .from(history)
@@ -171,11 +176,6 @@ export const db_update_history = async (params) => { };
 
 export const api_login = async (data) => service.post("/auth/login", data);
 export const api_logout = async (data) => service.post("/auth/logout", data);
-export const api_register = async (data) =>
-    service.post("/auth/register", data);
+export const api_register = async (data) => service.post("/auth/register", data);
 export const api_unbound = async (data) => service.post("/auth/unbound", data);
-export const api_rechage = async (data) => service.post("/user/recharge", data);
-export const api_gather_live_post = async (data) =>
-    service.post("/user/fd/lives", data);
-export const api_fetch_fd_list = async (data) =>
-    service.get("/user/fd/records", data);
+export const api_rechage = async (data) => service.post("/auth/recharge", data);

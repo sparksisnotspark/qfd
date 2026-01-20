@@ -16,14 +16,14 @@ export const useAppStore = defineStore("appStore", {
             const store = await this.get_store();
             try {
                 this.token = await store.get("token");
-                this.isAuth = await store.get("isAuth");
+                //this.isAuth = await store.get("isAuth");
                 console.log("this token", this.token, this.isAuth);
             } catch (e) {
                 console.log(e, "loading data error");
             }
         },
         async get_store() {
-            let store = await load("app.json", {autoSave: false});
+            let store = await load("app.json", { autoSave: false });
             return store;
         },
 
@@ -46,7 +46,7 @@ export const useAppStore = defineStore("appStore", {
                 return [false, res.data];
             }
             store.set("token", credentials.keycode);
-            store.set("isAuth", true);
+            //store.set("isAuth", true);
             store.set(LOGIN_INFO_KEY, credentials);
             this.token = credentials.keycode;
             this.isAuth = true;
@@ -64,7 +64,7 @@ export const useAppStore = defineStore("appStore", {
                 await store.delete("token");
                 await store.delete("isAuth");
                 await store.save();
-            } catch(e) {
+            } catch (e) {
                 this.token = null;
                 this.isAuth = false;
             }

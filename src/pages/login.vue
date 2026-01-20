@@ -181,6 +181,7 @@ const loginInfo = reactive({
     password: "",
     keycode: "",
 });
+
 const router = useRouter();
 const registerInfo = reactive({
     username: "",
@@ -225,6 +226,7 @@ const rechargeRules = {
         { required: true, trigger: "blur", message: "后台数据key不能为空" },
     ],
 };
+
 const loginRules = {
     username: [{ required: true, trigger: "blur", message: "用户名不能为空" }],
     keycode: [
@@ -232,6 +234,7 @@ const loginRules = {
     ],
     password: [{ required: true, trigger: "blur", message: "密码不能为空" }],
 };
+
 const store = useAppStore();
 const registerLoading = ref(false);
 const registerHandler = async () => {
@@ -242,13 +245,13 @@ const registerHandler = async () => {
             return;
         }
         let res = await api_register({ ...registerInfo, mac_address });
-        console.log(res);
         let data = res.data;
         if (data.code != 0) {
             ElMessage.warning(data.msg);
             loadingTimeout(registerLoading, false);
         } else {
             router.push("/login");
+            ElMessage.success(data.msg);
         }
     } catch (e) {
         console.log(e);
@@ -272,15 +275,13 @@ const unboundHandler = async () => {
     try {
         let machine_id = await fetch_mac_address();
         let params = {...unboundInfo, machine_id};
-        console.log("unbound send params is: ", params);
         let res = await api_unbound({ ...unboundInfo, machine_id});
-        console.log("解绑结果", res);
-        if(res.code == 0) {
-            ElMessage.success(res.msg);
-        } else {
-            ElMessage.warning(res.msg);
-        }
         loginLoading.value = false;
+        if(res.data.code == 0) {
+            ElMessage.success(res.data.msg);
+        } else {
+            ElMessage.warning(res.data.msg);
+        }
     } catch (e) {
         ElMessage.error(e);
         setTimeout(() => {
@@ -292,7 +293,7 @@ const unboundHandler = async () => {
 const loadingTimeout = async (l, value) => {
     setTimeout(() => {
         l.value = value;
-    }, 300);
+    }, 1000);
 }
 
 const rechargeHandler = async () => {
@@ -300,12 +301,19 @@ const rechargeHandler = async () => {
     try {
         let mac_address = await fetch_mac_address();
         let res = await api_rechage({ ...rechage, mac_address });
-        console.log("充值结果", res);
+        if (res.data.code != 0) {
+            ElMessage.warning(res.data.msg);
+        } else {
+            ElMessage.success(res.data.msg);
+            router.push("/login");
+        }
+        loadingTimeout(loginLoading, false);
     } catch (e) {
         console.log(e);
         loadingTimeout(loginLoading, false);
     }
 };
+
 const loginHandler = async () => {
     loginLoading.value = true;
     loginFormRef.value.validate(async (valid) => {
