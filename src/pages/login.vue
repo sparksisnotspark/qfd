@@ -165,7 +165,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { onMounted, reactive, ref } from "vue";
 
-import { ElForm, ElMessage } from "element-plus";
+import { ElForm, ElMessage, ElMessageBox } from "element-plus";
 import { api_login, api_rechage, api_register, api_unbound, init_sqlite_db } from "./../api.js";
 import { useAppStore } from "./../store.js";
 import { useRouter } from "vue-router";
@@ -325,6 +325,15 @@ const loginHandler = async () => {
                     ElMessage.warning(r[1].msg);
                     loadingTimeout(loginLoading, false);
                 } else {
+                    let expired_at = r[1].data.expired_at;
+                    ElMessageBox.alert(
+                        `登录成功,到期时间为:${expired_at}`,
+                        "提示",
+                        {
+                            confirmButtonText: "确定",
+                            type: "success",
+                        }
+                    );
                     router.push("/");
                 }
             } catch (e) {
