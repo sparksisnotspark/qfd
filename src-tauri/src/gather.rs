@@ -16,6 +16,14 @@ pub async fn async_fetch_room(app_key: &str, tp: &str, params: &serde_json::Valu
     Ok(json)
 }
 
+pub async fn check_token_expired(app_key:&str) -> Result<serde_json::Value, MyError> {
+    let url: String = format!("{}/api/checkToken", API_URL);
+    let client = Client::new();
+    let resp = client.get(url).header("Content-Type", "application/json").header("app-key", app_key).send().await?;
+    let json = resp.json::<serde_json::Value>().await?;
+    Ok(json)
+}
+
 pub fn sync_fetch_room(app_key: &str, tp: &str) -> Result<serde_json::Value, MyError> {
     let url: String = format!("{}/api/fetchRoom", API_URL);
     let client = reqwest::blocking::Client::new();

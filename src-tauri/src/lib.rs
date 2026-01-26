@@ -583,6 +583,25 @@ async fn stop_automation() -> Result<(), tauri::Error> {
 }
 
 #[tauri::command]
+async fn check_token_expired(app:AppHandle, _token: &str) -> Result<(), String> {
+    //模拟检查token是否过期
+    let store = app.app_handle().store("app.json").unwrap();
+    let token = store
+        .get("token")
+        .unwrap()
+        .as_str()
+        .to_owned()
+        .unwrap()
+        .to_string();
+    println!("token is: {:?}", token);
+    let result = gather::check_token_expired(&token).await;
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("token expired check error {:?}", e)),
+    }
+}
+
+#[tauri::command]
 async fn stop_test() -> Result<(), tauri::Error> {
     let mut s: Vec<(i32, String)> = vec![
         (231, "sparks".to_string()),
@@ -598,8 +617,8 @@ async fn stop_test() -> Result<(), tauri::Error> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .setup(|app| {
+    let mut builder = tauri::Builder::default();
+    builder.setup(|app| {
             let app_state = Arc::new(Mutex::new(AppState::default()));
             // store in tauri managed state as well as global OnceLock for handlers
             app.manage(app_state.clone());

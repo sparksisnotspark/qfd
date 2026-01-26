@@ -746,6 +746,16 @@ let init_db = async () => {
     console.log("init db success!");
 }
 
+const check_token_expired = async () => {
+    try {
+        let res = await invoke("check_token_expired", { });
+        console.log("res of the best is: ", res);
+    } catch(e)
+    {
+        console.log("exception of this:", e);
+    }
+}
+
 const loadParameters = async () => {
     let res = await store.loadStoreKey(task_store_key);
     if (res == undefined) {

@@ -1,8 +1,8 @@
 <template>
     <div class="pannels">
-        <h3>开心福袋系统</h3>
-        <div style="color: red">
-            <h3>重要提示</h3>
+        <el-image src="/icon.png" style="width:70px; height: 70px; margin-top: 10px;" />
+        <div style="color: red; background-color: rgba(0, 0, 0, 0.2); font-size: 14px;  padding: 10px; margin: 10px; border-radius: 10px;" >
+            <h3 style="border-bottom: 1px solid rgba(0, 0, 0, 0.3); margin: 0;">重要提示</h3>
             <p>
                 1.本软件仅供学习交流使用，请勿用于非法用途，一切后果由使用者承担
             </p>
@@ -162,19 +162,24 @@
 </template>
 
 <script setup>
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { resourceDir, join} from "@tauri-apps/api/path";
 import { onMounted, reactive, ref } from "vue";
 
 import { ElForm, ElMessage, ElMessageBox } from "element-plus";
 import { api_login, api_rechage, api_register, api_unbound, init_sqlite_db } from "./../api.js";
 import { useAppStore } from "./../store.js";
 import { useRouter } from "vue-router";
+import { iconPropType } from "element-plus/es/utils/index.mjs";
 const activeName = ref("login");
 const loginLoading = ref(false);
 const loginFormRef = ref(null);
 const registerFormRef = ref(null);
 const unboundFormRef = ref(null);
 const rechargeFormRef = ref(null);
+const appName = ref("");
+const appImageIcon = ref("");
 
 const loginInfo = reactive({
     username: "",
@@ -261,7 +266,18 @@ const registerHandler = async () => {
 
 onMounted(async () => {
     try {
+        const currentWindow = await getCurrentWindow();
+        appName.value = await currentWindow.title();
         let res = await store.loadStoreKey("login_info_key");
+        const resource_path = await resourceDir();
+        const icon_path = await join(resource_path, "icons/icon.png");
+        appImageIcon.value = icon_path; //convertFileSrc(icon_path);
+        console.log("icon path is: ", icon_path);
+        console.log("icon value ", appImageIcon.value);
+
+        //const appIconB64 = await getAppImage();
+        //appImageIcon.value = `data:image/png;base64,${appIconB64}`;
+        
         loginInfo.keycode = res.keycode;
         loginInfo.username = res.username;
         loginInfo.password = res.password;
