@@ -189,6 +189,7 @@ pub async fn browser_open(browser_id: &str) -> Result<serde_json::Value, Box<dyn
     let client = Client::new();
     let res = client
         .post(format!("{}{}", API_URL, "/browser/open"))
+        .timeout(Duration::from_secs(120))
         .json(&p)
         .send()
         .await?;
@@ -300,9 +301,10 @@ pub async fn hb_logic(
     let _ = driver.enter_default_frame().await;
     let el = driver
         .query(By::Css("div.redpacket"))
-        .wait(Duration::from_secs(6), Duration::from_millis(20))
+        .wait(Duration::from_secs(3), Duration::from_millis(20))
         .first()
         .await?;
+
     el.wait_until().clickable().await?;
     driver
         .action_chain()
@@ -319,7 +321,7 @@ pub async fn hb_logic(
     iframe.enter_frame().await?;
     let shadow_root = driver
         .query(By::Tag("lynx-view"))
-        .wait(Duration::from_secs(5), Duration::from_millis(50))
+        .wait(Duration::from_secs(3), Duration::from_millis(50))
         .first()
         .await?
         .get_shadow_root()
@@ -327,13 +329,13 @@ pub async fn hb_logic(
 
     let wrap = shadow_root
         .query(By::Css("scroll-view > lynx-wrapper"))
-        .wait(Duration::from_secs(5), Duration::from_millis(50))
+        .wait(Duration::from_secs(3), Duration::from_millis(50))
         .first()
         .await?;
 
     let hbs = wrap
         .query(By::ClassName("scale_container"))
-        .wait(Duration::from_secs(5), Duration::from_millis(20))
+        .wait(Duration::from_secs(3), Duration::from_millis(20))
         .all_from_selector()
         .await?;
     println!("find 红包按钮? {:?}", hbs);
@@ -413,7 +415,7 @@ pub async fn hb_logic(
                         println!("等待 {:?} 秒红包结束", sec);
                         if sec > 0 {
                             let mut rng = rand::rng();
-                            let rand_number = rng.random_range(5..10);
+                            let rand_number = rng.random_range(3..10);
                             leave_time = sec as u64 + rand_number;
                             println!("设置等待时间为 {:?}", leave_time);
                         }

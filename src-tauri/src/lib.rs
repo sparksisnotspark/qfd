@@ -439,6 +439,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         let browser_id = win["id"].as_str().unwrap().to_string();
         let seq = win["seq"].as_u64().unwrap().to_string();
         let res = bit::browser_open(browser_id.as_str()).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(300)).await;
         let success = res["success"].as_bool().unwrap();
         if success == false {
             return Err(format!(
@@ -508,10 +509,10 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 let room_json = gather::async_fetch_room(&token, &tp, &json_).await;
                 if room_json.is_err() {
                     println!(
-                        "获取服务器房间数据失败 {:?}等5秒再试",
+                        "获取服务器房间数据失败 {:?}等3秒再试",
                         room_json.err().unwrap()
                     );
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
 
@@ -519,9 +520,9 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 println!("room_josn{:?}", room_json);
                 let data = room_json["data"].as_array().unwrap();
                 if data.is_empty() {
-                    println!("data is empty here: {:?} 等待5秒", data);
+                    println!("data is empty here: {:?} 等待3秒", data);
                     let _ = app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"查找直播音等待5秒", "seq":seq}));
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
 
@@ -617,7 +618,7 @@ async fn stop_test() -> Result<(), tauri::Error> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default();
+    let builder = tauri::Builder::default();
     builder.setup(|app| {
             let app_state = Arc::new(Mutex::new(AppState::default()));
             // store in tauri managed state as well as global OnceLock for handlers

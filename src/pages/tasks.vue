@@ -531,9 +531,9 @@ const startAutomation = async () => {
                 ElMessage.success("自动化运行已启动");
             } catch (error) {
                 console.error("Error invoking browser_group_windows:", error);
-                start_btn_disabled.value = false;
-                browserOptionsDisabled.value = false;
-                groupSelectFormDisabled.value = false;
+                //start_btn_disabled.value = false;
+                //browserOptionsDisabled.value = false;
+                //groupSelectFormDisabled.value = false;
                 ElMessage.error(error);
             }
         })
