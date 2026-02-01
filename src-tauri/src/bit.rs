@@ -248,7 +248,7 @@ pub fn caclulate_leave_time(start: u64, delay: u64) -> u64 {
         return default_leave_time;
     }
     let mut rng = rand::rng();
-    let rand_number = rng.random_range(3..8);
+    let rand_number = rng.random_range(3..5);
     leave_time - now_sec + rand_number
 }
 

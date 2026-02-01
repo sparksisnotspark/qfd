@@ -117,7 +117,7 @@ fn sync_start_spider(
             }
             app.emit("log", "Go... spider").unwrap();
 
-            let rooms = gather::sync_fetch_dy_room(cookie_.to_string());
+            let rooms: Result<serde_json::Value, bit::MyError> = gather::sync_fetch_dy_room(cookie_.to_string());
             if rooms.is_err() {
                 let err = rooms.err().unwrap();
                 println!("获取服务器房间数据失败 {:?}", err);
@@ -145,11 +145,12 @@ fn sync_start_spider(
                 let index = i % length;
                 let cookie__ = m_cookies_stack.get(index).unwrap().to_string();
                 let mut rng = rand::rng();
-                let rand_number = rng.random_range(1000..=3000);
+                let rand_number = rng.random_range(800..=2000);
                 let json_data = json!({
                     "room_id": room_id.to_string(),
                     "web_rid":web_rid.to_string(),
-                    "title":title.to_string(),"type":gather_type_, "cookie":cookie__, "token": token_, "sleep":rand_number
+                    "title":title.to_string(),"type":gather_type_, "cookie":cookie__, "token": token_, "sleep":rand_number,
+                    "options":options
                 });
                 pool.execute(threads::Job::new(json_data, app.clone()));
                 let payload = format!(

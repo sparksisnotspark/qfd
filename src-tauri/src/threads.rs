@@ -1,5 +1,5 @@
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::{thread};
 
 use serde_json::json;
 use tauri::{AppHandle, Emitter};
@@ -31,6 +31,14 @@ impl Job {
         let gather_type = self.payload["type"].as_str().unwrap();
         let token = self.payload["token"].as_str().unwrap();
         let sleep = self.payload["sleep"].as_i64().unwrap();
+        let options = self.payload["options"].as_object().unwrap();
+        let winning_ratio = options["winning_ratio"].as_u64().unwrap();
+        let people_limit = options["people_limit"].as_u64().unwrap();
+        let join_fans_group = options["join_fans_group"].as_bool().unwrap();
+        let only_big_packet = options["only_big_packet"].as_bool().unwrap();
+        let min_avg_diamond = options["min_avg_diamond"].as_u64().unwrap();
+        println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?} only big packet {:?} min avg diamond {:?}", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond);
+
         if gather_type == "hb" {
             let x = gather::parse_luckbox_info(room_id, web_rid, cookie);
             if x.is_ok() {
@@ -59,13 +67,27 @@ impl Job {
                 let info = x.unwrap();
                 let prize_count = info["prize_count"].as_u64().unwrap();
                 let lucky_count = info["lucky_count"].as_u64().unwrap();
+               
                 let send_time = info["send_time"].as_u64().unwrap();
                 let delay = info["delay"].as_u64().unwrap();
                 let room_url = info["room_url"].as_str().unwrap();
                 let room_id = info["room_id"].as_str().unwrap();
                 let title = info["title"].as_str().unwrap();
                 let web_rid = info["web_rid"].as_str().unwrap();
-                let candidate_num = info["candidate_num"].as_u64().unwrap();
+                let candidate_num = info["candidate_num"].as_u64().unwrap(); 
+
+                if candidate_num > people_limit {
+                    self.app.emit("log", "winning ratio ").unwrap();
+                    std::thread::sleep(std::time::Duration::from_millis(600)); 
+                    return
+                }
+
+                if (lucky_count / candidate_num)  < (winning_ratio  / 100){
+                    self.app.emit("log", "winning ratio ").unwrap();
+                    std::thread::sleep(std::time::Duration::from_millis(600));
+                    return
+                }
+
                 println!("prize count {:?} lucky count {:?}, {:?} {:?}", prize_count, lucky_count, delay, candidate_num);
                 let value = json!({"room_url": room_url,"room_id":room_id ,"type":"fd", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
                 let x = gather::sync_add_one_room(token, value);
