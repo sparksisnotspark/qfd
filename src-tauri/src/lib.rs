@@ -440,7 +440,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         let browser_id = win["id"].as_str().unwrap().to_string();
         let seq = win["seq"].as_u64().unwrap().to_string();
         let res = bit::browser_open(browser_id.as_str()).await.unwrap();
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
         let success = res["success"].as_bool().unwrap();
         if success == false {
             return Err(format!(
@@ -458,9 +458,12 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         let task_name = task_name.clone();
         let json_ = json.clone();
         tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_mins(1)).await; //等2分钟再开始
+
             let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str())
                 .await
                 .unwrap();
+
             let r = bit::parse_user_info(&driver).await;
             let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq}));
             if r.is_err() {
@@ -471,6 +474,8 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 return ();
             }
             let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq}));
+
+
             let rr = r.unwrap();
             let dy_name = rr.0;
             let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
@@ -584,6 +589,7 @@ async fn stop_automation() -> Result<(), tauri::Error> {
     Ok(())
 }
 
+/* 
 #[tauri::command]
 async fn check_token_expired(app:AppHandle, _token: &str) -> Result<(), String> {
     //模拟检查token是否过期
@@ -602,6 +608,7 @@ async fn check_token_expired(app:AppHandle, _token: &str) -> Result<(), String> 
         Err(e) => Err(format!("token expired check error {:?}", e)),
     }
 }
+    */
 
 #[tauri::command]
 async fn stop_test() -> Result<(), tauri::Error> {
