@@ -264,7 +264,7 @@ import { useRouter } from "vue-router";
 import { getDb } from "../db";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher, init_sqlite_db, check_record_exists } from "../api";
+import { db_action_dispatcher, init_sqlite_db, check_record_exists, clean_task_name } from "../api";
 
 const max_length = 50;
 const logs = ref([]);
@@ -280,19 +280,6 @@ const cookiesList = ref([]);
 
 const showLog = async () => {
     showLogDiv.value = !showLogDiv.value;
-};
-
-const test_login_required = async () => {
-    try {
-        let res = await invoke("test_login_required", {
-            params: JSON.stringify({
-                group_id: groupSelection.value,
-            })
-        });
-        console.log("---------", res);
-    } catch (e) {
-        console.log("error of login required", e);
-    }
 };
 
 const getMacAddress = async () => {
@@ -589,6 +576,7 @@ const cjBFHandler = () => {
     });
 };
 
+
 const stopAutomation = async () => {
     ElMessageBox.confirm("确定停止任务？", "确认", { type: "warning" }).then(
         async () => {
@@ -597,22 +585,19 @@ const stopAutomation = async () => {
                 lock: true,
                 text: "正在停止任务...",
             });
+
             try {
                 console.log(groupSelection.value);
                 let res = await invoke("stop_automation");
                 console.log("Stopped automation:", res);
-                ElMessage({
-                    type: "success",
-                    message: "自动化已停止",
-                });
+                ElMessage.success("自动化停止成功");
                 loading.close();
+                let r = await clean_task_name();
+                console.log("r is", r);
             } catch (error) {
                 loading.close();
                 console.error("Error invoking stop_automation:", error);
-                ElMessage({
-                    type: "warning",
-                    message: error.message,
-                });
+                ElMessage.warning(error);
             }
             browserOptionsDisabled.value = false;
             groupSelectFormDisabled.value = false;
@@ -871,7 +856,9 @@ const window_bounds = async () => {
     }
 };
 
-const saveSettings = async () => { };
+const saveSettings = async () => { 
+    await saveDefaultParams();
+};
 
 const logoutLoading = ref(false);
 const logoutHandler = async () => {

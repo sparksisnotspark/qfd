@@ -473,8 +473,6 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 let _ = driver.quit().await;
                 return ();
             }
-            let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq}));
-
 
             let rr = r.unwrap();
             let dy_name = rr.0;

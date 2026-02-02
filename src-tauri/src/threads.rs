@@ -36,11 +36,12 @@ impl Job {
         let people_limit = options["people_limit"].as_u64().unwrap();
         let join_fans_group = options["join_fans_group"].as_bool().unwrap();
         let only_big_packet = options["only_big_packet"].as_bool().unwrap();
-        let min_avg_diamond = options["min_avg_diamond"].as_u64().unwrap();
+        let min_avg_diamond = options["min_avg_diamond"].as_u64().unwrap(); //红包
+
         println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?} only big packet {:?} min avg diamond {:?}", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond);
 
         if gather_type == "hb" {
-            let x = gather::parse_luckbox_info(room_id, web_rid, cookie);
+            let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond);
             if x.is_ok() {
                 let info = x.unwrap();
                 let room_url = info["room_url"].as_str().unwrap();
@@ -59,10 +60,10 @@ impl Job {
                 println!("xx is: {:?}", x);
                 self.app.emit("log", "插入红包的信息成功").unwrap();
             } else {
-                self.app.emit("log", format!("insert hb failure {:?}", x.err().unwrap())).unwrap();
+                self.app.emit("log", format!("出错  {:?}", x.err().unwrap())).unwrap();
             }
         } else if gather_type == "fd" {
-            let x = gather::parse_lottery_info(room_id, web_rid, cookie);
+            let x = gather::parse_lottery_info(room_id, web_rid, cookie, only_big_packet, join_fans_group, people_limit, winning_ratio, min_avg_diamond); //逻辑放到了添加福袋的里面去了
             if x.is_ok() {
                 let info = x.unwrap();
                 let prize_count = info["prize_count"].as_u64().unwrap();
@@ -76,18 +77,6 @@ impl Job {
                 let web_rid = info["web_rid"].as_str().unwrap();
                 let candidate_num = info["candidate_num"].as_u64().unwrap(); 
 
-                if candidate_num > people_limit {
-                    self.app.emit("log", "winning ratio ").unwrap();
-                    std::thread::sleep(std::time::Duration::from_millis(600)); 
-                    return
-                }
-
-                if (lucky_count / candidate_num)  < (winning_ratio  / 100){
-                    self.app.emit("log", "winning ratio ").unwrap();
-                    std::thread::sleep(std::time::Duration::from_millis(600));
-                    return
-                }
-
                 println!("prize count {:?} lucky count {:?}, {:?} {:?}", prize_count, lucky_count, delay, candidate_num);
                 let value = json!({"room_url": room_url,"room_id":room_id ,"type":"fd", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
                 let x = gather::sync_add_one_room(token, value);
@@ -99,7 +88,7 @@ impl Job {
                 println!("xx is: {:?}", x);
                 self.app.emit("log", "查询到福袋的信息").unwrap();
             } else {
-                self.app.emit("log", format!("fetch fd failure {:?}", x.err().unwrap())).unwrap();
+                self.app.emit("log", format!("福袋解析出错 {:?}", x.err().unwrap())).unwrap(); 
             }
         }
         {

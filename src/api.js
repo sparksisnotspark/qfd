@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { db, getDb } from "./db";
 import { history } from "./db/schema";
 import { eq, sql, and, param } from "drizzle-orm";
+import { ca } from "element-plus/es/locales.mjs";
 
 const API_URL = "http://193.134.211.160:8787";
 
@@ -43,6 +44,18 @@ export const init_browser_seq = async (windows) => {
         }
     }
 };
+export const clean_task_name = async (date) => {
+    let create_at = date ? date : dayjs().format("YYYY-MM-DD");
+    try {
+        let db = await getDb();
+        let sql_ = `UPDATE history SET task_name='', task_msg='' WHERE create_at=?`;
+        let x = await db.execute(sql_, [create_at]);
+        console.log(x, "clean task name info", create_at);
+    } catch (e) {
+        console.log(e, "clean exception");  
+    }
+}
+
 export const db_action_dispatcher = async (event) => {
     const INCREMENT_COLUMNS_WHITELIST = [
         "xiaohao_diamond_count",
