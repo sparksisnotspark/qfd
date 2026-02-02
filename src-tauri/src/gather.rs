@@ -259,7 +259,7 @@ pub fn parse_lottery_info(
 
             if per_pack < min_avg_diamond as f64 { // 大于等于表示OK
                 println!("福袋金额太小 {:?} {:?}", per_pack, min_avg_diamond);
-                return Err(MyError::StringError("福袋金额太小".to_string()));
+                return Err(MyError::StringError(format!("福袋金额太小 per pack {:?} lucky count: {:?}", per_pack, lucky_count).to_string()));
             }
 
             let rate = lucky_count as f64 / candidate_num as f64;

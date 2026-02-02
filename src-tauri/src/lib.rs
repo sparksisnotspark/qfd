@@ -145,7 +145,7 @@ fn sync_start_spider(
                 let index = i % length;
                 let cookie__ = m_cookies_stack.get(index).unwrap().to_string();
                 let mut rng = rand::rng();
-                let rand_number = rng.random_range(1500..=3000);
+                let rand_number = rng.random_range(900..=2000);
                 let json_data = json!({
                     "room_id": room_id.to_string(),
                     "web_rid":web_rid.to_string(),

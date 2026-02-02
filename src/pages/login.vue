@@ -1,7 +1,7 @@
 <template>
     <div class="pannels">
         <el-image src="/icon.png" style="width:70px; height: 70px; margin-top: 10px;" />
-        <p>{{ app_version }}</p>
+        <p>v{{ app_version }}</p>
         <div style="color: red; background-color: rgba(0, 0, 0, 0.2); font-size: 14px;  padding: 10px; margin: 10px; border-radius: 10px;" >
             <h3 style="border-bottom: 1px solid rgba(0, 0, 0, 0.3); margin: 0;">重要提示</h3>
             <p>

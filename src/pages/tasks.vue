@@ -220,7 +220,7 @@
                                 <p>总房间数: {{ total }}</p>
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
-                                <p>当前版本：{{app_version}}</p>
+                                <p>当前版本: v{{app_version}}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
                             </div>
                         </div>
