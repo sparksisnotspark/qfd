@@ -442,7 +442,7 @@ pub async fn hb_logic(
         //根据结果解析用户获得的钻石数量
         let result = el
             .query(By::Css(".main_body_container"))
-            .wait(Duration::from_secs(1), Duration::from_millis(50))
+            .wait(Duration::from_secs(1), Duration::from_millis(30))
             .all_from_selector()
             .await;
         if !result.is_err() {
