@@ -202,6 +202,7 @@ pub async fn browser_closeall() -> Result<(), Error> {
     let client = Client::new();
     _ = client
         .post(format!("{}{}", API_URL, "/browser/close/all"))
+        .timeout(Duration::from_secs(30))
         .send()
         .await;
     /*
