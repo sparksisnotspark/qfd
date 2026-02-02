@@ -36,7 +36,8 @@ impl Job {
         let people_limit = options["people_limit"].as_u64().unwrap();
         let join_fans_group = options["join_fans_group"].as_bool().unwrap();
         let only_big_packet = options["only_big_packet"].as_bool().unwrap();
-        let min_avg_diamond = options["min_avg_diamond"].as_u64().unwrap(); //红包
+        let min_avg_diamond = options["min_avg_diamond"].as_u64().or(Some(1)).unwrap(); //红包
+        let fd_min_avg_diamond = options["fd_min_avg_diamond"].as_u64().or(Some(10)).unwrap();
 
         println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?} only big packet {:?} min avg diamond {:?}", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond);
 
@@ -63,7 +64,7 @@ impl Job {
                 self.app.emit("log", format!("出错  {:?}", x.err().unwrap())).unwrap();
             }
         } else if gather_type == "fd" {
-            let x = gather::parse_lottery_info(room_id, web_rid, cookie, only_big_packet, join_fans_group, people_limit, winning_ratio, min_avg_diamond); //逻辑放到了添加福袋的里面去了
+            let x = gather::parse_lottery_info(room_id, web_rid, cookie, only_big_packet, join_fans_group, people_limit, winning_ratio, fd_min_avg_diamond); //逻辑放到了添加福袋的里面去了
             if x.is_ok() {
                 let info = x.unwrap();
                 let prize_count = info["prize_count"].as_u64().unwrap();

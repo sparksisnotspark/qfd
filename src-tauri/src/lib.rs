@@ -145,7 +145,7 @@ fn sync_start_spider(
                 let index = i % length;
                 let cookie__ = m_cookies_stack.get(index).unwrap().to_string();
                 let mut rng = rand::rng();
-                let rand_number = rng.random_range(800..=2000);
+                let rand_number = rng.random_range(1500..=3000);
                 let json_data = json!({
                     "room_id": room_id.to_string(),
                     "web_rid":web_rid.to_string(),
@@ -304,6 +304,8 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
                 println!("解析人物出错 {:?}", e);
                 app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name": task_name, "task_msg": "需要登陆", "seq":seq })).unwrap();
                 let _ = driver.quit().await;
+                let r = bit::browser_close(browser_id.as_str()).await;
+                app.emit("log", format!("关闭浏览器结果 {:?}", r)).unwrap();
                 return ();
             }
             let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq})); //失败程序不会panic
@@ -324,7 +326,8 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
                 if running == false {
                     println!("停止自动化任务执行");
                     let _ = driver.quit().await;
-                    let _ = bit::browser_close(browser_id.as_str()).await; //好像没有关闭单个的接口
+                    let r = bit::browser_close(browser_id.as_str()).await; //好像没有关闭单个的接口
+                    app.emit("log", format!("关闭浏览器的结果{:?}", r)).unwrap();
                     break;
                 }
 
@@ -470,8 +473,9 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 let e = r.unwrap_err().to_string();
                 println!("解析人物出错 {:?}", e);
                 let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"或需要重新陆", "seq":seq}));
-                let _ = driver.quit().await;
-                let _ = bit::browser_close(browser_id.as_str()).await;
+                bit::browser_close(browser_id.as_str()).await.unwrap();
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                driver.quit().await.unwrap();
                 return ();
             }
 
@@ -480,6 +484,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
             let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
             let dy_account = dy_account[1].to_string();
             println!("dy name {:?} dy account {:?}", dy_name, dy_account);
+            app.emit("log", format!("name {:?} account: {:?}", dy_name, dy_account)).unwrap();
             let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE,"task_name": task_name, "task_msg":"更新抖音名称", "dy_name":dy_name, "dy_account":dy_account, "seq":seq}));
             let state_clone = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut has_closed_all = false;
@@ -491,8 +496,9 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
 
                 if running == false {
                     println!("停止自动化任务执行");
-                    let _ = driver.quit().await;
-                    let _ = bit::browser_close(browser_id.as_str()).await; //好像没有关闭单个的接口
+                    bit::browser_close(browser_id.as_str()).await.unwrap(); //好像没有关闭单个的接口
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    driver.quit().await.unwrap();
                     break;
                 }
 
@@ -514,10 +520,10 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 let room_json = gather::async_fetch_room(&token, &tp, &json_).await;
                 if room_json.is_err() {
                     println!(
-                        "获取服务器房间数据失败 {:?}等3秒再试",
+                        "获取服务器房间数据失败 {:?}等5秒再试",
                         room_json.err().unwrap()
                     );
-                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    tokio::time::sleep(Duration::from_secs(5)).await;
                     continue;
                 }
 

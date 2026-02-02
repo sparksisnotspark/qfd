@@ -189,7 +189,7 @@ pub async fn browser_open(browser_id: &str) -> Result<serde_json::Value, Box<dyn
     let client = Client::new();
     let res = client
         .post(format!("{}{}", API_URL, "/browser/open"))
-        .timeout(Duration::from_secs(120))
+        .timeout(Duration::from_secs(30))
         .json(&p)
         .send()
         .await?;
@@ -708,7 +708,7 @@ pub async fn parse_user_info(driver: &WebDriver) -> Result<(String, String), MyE
     let _ = tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     let name = driver
         .query(By::Css(".arnSiSbK > span:nth-child(1) > span:nth-child(1) > span:nth-child(1) > span:nth-child(1)"))
-        .wait(Duration::from_secs(5), Duration::from_millis(100))
+        .wait(Duration::from_secs(3), Duration::from_millis(100))
         .first()
         .await?
         .text()

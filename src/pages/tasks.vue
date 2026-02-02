@@ -128,7 +128,7 @@
                                     class="collector-config-form">
                                     <el-form-item label="多线程数量">
                                         <el-input-number style="width: 100px" v-model="spiderOptions.thread_number
-                                            " :min="1" :max="5" placeholder="采集线程数量" type="number"></el-input-number>
+                                            " :min="1" :max="10" placeholder="采集线程数量" type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="中奖比例">
                                         <el-input-number :min="1" v-model="spiderOptions.winning_ratio
@@ -139,7 +139,7 @@
                                         <el-input-number v-model="spiderOptions.people_limit" style="width: 100px"
                                             :min="1" :max="9999" placeholder="人数限制" type="number"></el-input-number>
                                     </el-form-item>
-                                    <el-form-item label="最小时间(秒)">
+                                    <el-form-item label="最小时间">
                                         <el-input-number style="width: 120px" v-model="spiderOptions.min_time" :min="1"
                                             :max="9999" placeholder="最小时间" type="number"></el-input-number>
                                     </el-form-item>
@@ -149,11 +149,18 @@
                                             type="number"></el-input-number>
                                     </el-form-item>
 
-                                    <el-form-item label="最小人均钻石">
+                                    <el-form-item label="红包人均">
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
-                                            placeholder="最小人均钻石" v-model="spiderOptions.min_avg_diamond
+                                            placeholder="红包人均钻石" v-model="spiderOptions.min_avg_diamond
                                                 "></el-input-number>
                                     </el-form-item>
+
+                                    <el-form-item label="福袋人均">
+                                        <el-input-number style="width: 100px" :min="1" :max="100" type="number"
+                                            placeholder="福袋人均钻石" v-model="spiderOptions.fd_min_avg_diamond
+                                                "></el-input-number>
+                                    </el-form-item>
+
                                     <el-form-item label="只采集大包">
                                         <el-switch v-model="spiderOptions.only_big_packet"></el-switch>
                                     </el-form-item>
@@ -409,22 +416,23 @@ const browserOptions = reactive({
 
 const spiderOptions = reactive({
     enable_spider: false, //启用采集
-    thread_number: 2, //采集线程数量
-    winning_ratio: 50, //中奖比例
+    thread_number: 8, //采集线程数量
+    winning_ratio: 9, //中奖比例
     people_limit: 1000, //人数限制
-    min_time: 5, //最小时间(秒)
-    max_time: 10, //最大时间(秒)
+    min_time: 10, //最小时间(秒)
+    max_time: 30, //最大时间(秒)
     join_fans_group: false, //参与粉丝团
     live_square_ck: "", //直播广场CK
     only_big_packet: false, //只采集大包
-    min_avg_diamond: 10, //最小人均钻石
+    min_avg_diamond: 2, //红包
+    fd_min_avg_diamond: 10,
     ip_fetch_url: "", //IP获取链接
 });
 
 const windowOptions = reactive({
     auto_arrange: false, //自动排列窗口
-    x_offset: 50, //x坐标偏移
-    y_offset: 15, //Y坐标偏移
+    x_offset: 60, //x坐标偏移
+    y_offset: 18, //Y坐标偏移
 });
 
 
