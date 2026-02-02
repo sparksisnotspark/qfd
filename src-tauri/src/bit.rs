@@ -505,7 +505,7 @@ pub async fn hb_logic(
 
     app.emit(
         "db",
-        json!({"action":"update","task_msg":"开奖完成,准备执行下一个","hongbao_canyu_count": hb_canyu_count, "hongbao_win_count": hb_win_count,"hongbao_huode_diamond_count": hb_huode_diamond_count, "count_num":diamond,  "seq":seq  }),
+        json!({"action":"update","task_msg":"开奖完成,准备执行下一个","hongbao_canyu_count": 1, "hongbao_win_count": hb_win_count,"hongbao_huode_diamond_count": hb_huode_diamond_count, "count_num":diamond,  "seq":seq  }),
     ).unwrap();
     //----------------------------------------------------------
     Ok(())
@@ -759,6 +759,7 @@ pub async fn get(
     println!("room is {:?}", data);
     Ok(rooms)
 }
+
 
 pub async fn post(url: String, cookie: String, params: serde_json::Value) -> Result<String, Error> {
     let mut header = header::HeaderMap::new();

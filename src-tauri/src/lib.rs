@@ -159,7 +159,7 @@ fn sync_start_spider(
                 );
                 app.emit("log", payload).unwrap();
                 i = i + 1;
-                std::thread::sleep(std::time::Duration::from_millis(800));
+                std::thread::sleep(std::time::Duration::from_millis(100));
                 room_count += 1;
             }
             {
@@ -471,6 +471,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 println!("解析人物出错 {:?}", e);
                 let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"或需要重新陆", "seq":seq}));
                 let _ = driver.quit().await;
+                let _ = bit::browser_close(browser_id.as_str()).await;
                 return ();
             }
 

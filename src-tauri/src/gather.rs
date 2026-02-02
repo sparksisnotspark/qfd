@@ -2,7 +2,6 @@ use crate::bit::MyError;
 #[allow(unused)]
 use reqwest::Client;
 use serde_json::json;
-use thirtyfour::common::print;
 use std::collections::HashMap;
 
 //const API_URL: &str = "http://127.0.0.1:8787";
