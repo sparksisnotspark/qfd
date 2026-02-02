@@ -339,7 +339,7 @@ pub async fn hb_logic(
         .all_from_selector()
         .await?;
     println!("find 红包按钮? {:?}", hbs);
-    let mut hb_canyu_count = 0; //红包参与次数
+    //let mut hb_canyu_count = 0; //红包参与次数
     let mut hb_win_count = 0; //红包获胜次数
     let mut hb_huode_diamond_count = 0; //红包获得钻石数
     let hbs_clone = hbs.clone();
@@ -424,7 +424,7 @@ pub async fn hb_logic(
             }
 
             sleep(Duration::from_secs(1)).await;
-            hb_canyu_count += 1;
+            //hb_canyu_count += 1;
         }
     }
 
