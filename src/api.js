@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { db, getDb } from "./db";
 import { history } from "./db/schema";
 import { eq, sql, and, param } from "drizzle-orm";
-import { ca } from "element-plus/es/locales.mjs";
+import { getVersion } from '@tauri-apps/api/app';
 
 const API_URL = "http://193.134.211.160:8787";
 
@@ -44,6 +44,12 @@ export const init_browser_seq = async (windows) => {
         }
     }
 };
+
+export const getAppVersion = async () => {
+    const version = await getVersion();
+    return version;
+}
+
 export const clean_task_name = async (date) => {
     let create_at = date ? date : dayjs().format("YYYY-MM-DD");
     try {

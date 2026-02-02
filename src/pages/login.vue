@@ -1,6 +1,7 @@
 <template>
     <div class="pannels">
         <el-image src="/icon.png" style="width:70px; height: 70px; margin-top: 10px;" />
+        <p>{{ app_version }}</p>
         <div style="color: red; background-color: rgba(0, 0, 0, 0.2); font-size: 14px;  padding: 10px; margin: 10px; border-radius: 10px;" >
             <h3 style="border-bottom: 1px solid rgba(0, 0, 0, 0.3); margin: 0;">重要提示</h3>
             <p>
@@ -168,13 +169,13 @@ import { resourceDir, join} from "@tauri-apps/api/path";
 import { onMounted, reactive, ref } from "vue";
 
 import { ElForm, ElMessage, ElMessageBox } from "element-plus";
-import { api_login, api_rechage, api_register, api_unbound, init_sqlite_db } from "./../api.js";
+import { api_login, api_rechage, api_register, api_unbound, getAppVersion, init_sqlite_db } from "./../api.js";
 import { useAppStore } from "./../store.js";
 import { useRouter } from "vue-router";
-import { iconPropType } from "element-plus/es/utils/index.mjs";
 const activeName = ref("login");
 const loginLoading = ref(false);
 const loginFormRef = ref(null);
+const app_version = ref("");
 const registerFormRef = ref(null);
 const unboundFormRef = ref(null);
 const rechargeFormRef = ref(null);
@@ -266,6 +267,7 @@ const registerHandler = async () => {
 
 onMounted(async () => {
     try {
+        app_version.value = await getAppVersion();
         const currentWindow = await getCurrentWindow();
         appName.value = await currentWindow.title();
         let res = await store.loadStoreKey("login_info_key");

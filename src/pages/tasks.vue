@@ -220,6 +220,7 @@
                                 <p>总房间数: {{ total }}</p>
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
+                                <p>当前版本：{{app_version}}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
                             </div>
                         </div>
@@ -271,7 +272,7 @@ import { useRouter } from "vue-router";
 import { getDb } from "../db";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher, init_sqlite_db, check_record_exists, clean_task_name } from "../api";
+import { db_action_dispatcher, init_sqlite_db, check_record_exists, clean_task_name, getAppVersion } from "../api";
 
 const max_length = 50;
 const logs = ref([]);
@@ -395,6 +396,7 @@ const startAutomationLoading = ref(false);
 const start_btn_disabled = ref(false);
 const cjLoading = ref(false);
 const showCookieManagerDialog = ref(false); //显示管理 dialog
+const app_version = ref("");
 
 const searchOptions = reactive({
     dy_name: "",
@@ -784,6 +786,8 @@ onMounted(async () => {
     intervalId = setInterval(async () => {
         await searchHandler();
     }, 2000);
+
+    app_version.value = await getAppVersion();
 
     try {
         await loadCookies();
