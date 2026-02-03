@@ -221,6 +221,7 @@
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
                                 <p>当前版本: v{{app_version}}</p>
+                                <p>当前IP: {{ cur_remote_ip }}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
                             </div>
                         </div>
@@ -285,9 +286,23 @@ const allowed_count = ref(0);
 const showLogDiv = ref(false);
 const fd_count = ref(0);
 const cookiesList = ref([]);
+const cur_remote_ip = ref("");
 
 const showLog = async () => {
     showLogDiv.value = !showLogDiv.value;
+};
+
+const get_ip = async () => {
+    try {
+        let res = await invoke("get_ip");
+        console.log(res, "remote");
+        if (res.query != undefined && res.query) {
+            remote_ip.value = res.query;
+        }
+        ElMessage.success("获取IP成功");
+    } catch (e) {
+        ElMessage.warning("获取IP失败");
+    }
 };
 
 const getMacAddress = async () => {
@@ -783,6 +798,7 @@ let logListener = null;
 onMounted(async () => {
     await init_db(); //初始化数据
     await fetchGroups();
+    await get_ip();
     intervalId = setInterval(async () => {
         await searchHandler();
     }, 2000);

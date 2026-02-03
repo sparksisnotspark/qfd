@@ -26,6 +26,15 @@ pub async fn async_fetch_room(
     Ok(json)
 }
 
+pub fn get_ip() -> Result<serde_json::Value, MyError> {
+    let resp = reqwest::blocking::Client::new()
+        .get("http://ip-api.com/json")
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .send()?
+        .json::<serde_json::Value>()?;
+    Ok(resp)
+}
+
 pub async fn check_token_expired(app_key: &str) -> Result<serde_json::Value, MyError> {
     let url: String = format!("{}/api/checkToken", API_URL);
     let client = Client::new();

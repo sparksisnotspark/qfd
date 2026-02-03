@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc};
 #[allow(unused)]
 use std::{
     error, thread,
@@ -57,6 +57,15 @@ async fn fetch_bitbrowser_group() -> Result<Vec<(String, String)>, String> {
         Ok(v) => Ok(v),
         Err(e) => Err(format!("error of {:?}", e)),
     }
+}
+
+#[tauri::command]
+fn get_ip() -> Result<serde_json::Value, String> {
+    let res = gather::get_ip();
+    if res.is_err() {
+        return Err(format!("{:?}", res.err().unwrap()));
+    }
+    Ok(res.unwrap())
 }
 
 #[tauri::command]
@@ -596,6 +605,36 @@ async fn stop_automation() -> Result<(), tauri::Error> {
     Ok(())
 }
 
+
+#[tauri::command]
+fn spider_with_multiple_threads(app:AppHandle, options:serde_json::Value, gather_type:&str) -> Result<(), String> {
+    let threads = options["thread_number"].as_i64().unwrap();
+    println!("what is this params is: {:?}", threads);
+    let _ = app.emit("notify", "start spider success!"); //直接发射，不需要获得结果
+    let store = app.app_handle().store(APP_STORE_NAME).unwrap();
+    let token = store.get("token").unwrap().as_str().unwrap().to_string();
+    let cookies_stack: Vec<String> = match store.get("cookies") {
+        Some(x) => x
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x["ck"].to_string())
+            .collect(),
+        None => return Err("error cookie is empty~!".to_string()),
+    };
+    let gather_type = gather_type.to_string();
+    println!("gather type is: {:?}", gather_type);
+    let length = cookies_stack.len();
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let mut state_ = state.lock().unwrap();
+        state_.is_spider_running = true;
+    }
+    for i in 0..threads {
+    }
+    Ok(())
+}
+
 /* 
 #[tauri::command]
 async fn check_token_expired(app:AppHandle, _token: &str) -> Result<(), String> {
@@ -650,6 +689,7 @@ pub fn run() {
             sync_start_spider,
             sync_stop_spider,
             fetch_bitbrowser_group,
+            get_ip,
             bit_group_browsers,
             browser_windows_open,
             start_automation,
