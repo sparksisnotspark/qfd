@@ -461,7 +461,6 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         let task_name = task_name.clone();
         let json_ = json.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_mins(1)).await; //等2分钟再开始
 
             let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str())
                 .await
@@ -488,6 +487,9 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
             let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE,"task_name": task_name, "task_msg":"更新抖音名称", "dy_name":dy_name, "dy_account":dy_account, "seq":seq}));
             let state_clone = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut has_closed_all = false;
+
+            tokio::time::sleep(Duration::from_mins(2)).await; //等2分钟再开dd
+
             loop {
                 let running = {
                     let s = state_clone.lock().unwrap();
