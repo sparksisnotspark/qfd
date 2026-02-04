@@ -478,34 +478,31 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 .await
                 .unwrap();
 
-            tokio::time::sleep(Duration::from_mins(2)).await; //等2分钟再开dd
-
+            app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"等待70秒全部窗口开启", "seq":seq})).unwrap();
+            tokio::time::sleep(Duration::from_secs(70)).await; //
             let r = bit::parse_user_info(&driver).await;
-            let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq}));
+            app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq})).unwrap();
             if r.is_err() {
                 let e = r.unwrap_err().to_string();
                 println!("解析人物出错 {:?}", e);
-                let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"或需要重新陆", "seq":seq}));
+                app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"或需要重新陆", "seq":seq})).unwrap();
                 bit::browser_close(browser_id.as_str()).await.unwrap();
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 driver.quit().await.unwrap();
                 return ();
             }
 
+            app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"等待80信息解析出来", "seq":seq})).unwrap();
+            tokio::time::sleep(Duration::from_secs(70)).await; //等2分钟再开dd
+
             let rr = r.unwrap();
             let dy_name = rr.0;
             let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
             let dy_account = dy_account[1].to_string();
             println!("dy name {:?} dy account {:?}", dy_name, dy_account);
-            app.emit(
-                "log",
-                format!("name {:?} account: {:?}", dy_name, dy_account),
-            )
-            .unwrap();
             app.emit("db", json!({ACT_NAME:ACT_UPDATE,"task_name": task_name, "task_msg":"更新抖音名称", "dy_name":dy_name, "dy_account":dy_account, "seq":seq})).unwrap();
             let state_clone = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut has_closed_all = false;
-
 
             loop {
                 let running = {
