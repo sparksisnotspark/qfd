@@ -300,46 +300,72 @@ pub async fn hb_logic(
     let dy_account = options["dy_account"].as_str().unwrap();
 
     let _ = driver.enter_default_frame().await;
-    let el = driver
+    let el_ = driver
         .query(By::Css("div.redpacket"))
         .wait(Duration::from_secs(3), Duration::from_millis(20))
         .first()
-        .await?;
-
+        .await;
+    if el_.is_err() {
+        return Err(MyError::StringError("未找到红包元素".to_string()));
+    }
+    let el = el_.unwrap();
     el.wait_until().clickable().await?;
-    driver
+    
+    let x = driver
         .action_chain()
         .move_to_element_center(&el)
         .click()
         .perform()
-        .await?;
-    let iframe = driver
+        .await;
+    if x.is_err() {
+        return Err(MyError::StringError("点击红包出错".to_string()));
+    }
+    let iframe_ = driver
         .query(By::Css("div#short_touch_land_redpacket_land > iframe"))
         .first()
-        .await?;
+        .await;
 
+    if iframe_.is_err() {
+        return Err(MyError::StringError("查找iframe出错".to_string()));
+    }
+    let iframe = iframe_.unwrap();
     println!("find redpacket iframe");
     iframe.enter_frame().await?;
-    let shadow_root = driver
+    let shadow_root__ = driver
         .query(By::Tag("lynx-view"))
         .wait(Duration::from_secs(3), Duration::from_millis(50))
         .first()
-        .await?
-        .get_shadow_root()
-        .await?;
+        .await;
+    if shadow_root__.is_err() {
+        return Err(MyError::StringError("R框未找到".to_string()));
+    }
+    let shadow_root_ = shadow_root__.unwrap().get_shadow_root().await;
+    if shadow_root_.is_err() {
+        return Err(MyError::StringError("SR未找到".to_string()));
+    }
+    let shadow_root = shadow_root_.unwrap();
 
-    let wrap = shadow_root
+    let wrap_ = shadow_root
         .query(By::Css("scroll-view > lynx-wrapper"))
         .wait(Duration::from_secs(3), Duration::from_millis(50))
         .first()
-        .await?;
+        .await;
+    if wrap_.is_err() {
+        return Err(MyError::StringError("获取wrap出错".to_string()));
+    }
 
-    let hbs = wrap
+    let wrap = wrap_.unwrap();
+
+    let hbs_ = wrap
         .query(By::ClassName("scale_container"))
         .wait(Duration::from_secs(3), Duration::from_millis(20))
         .all_from_selector()
-        .await?;
-    println!("find 红包按钮? {:?}", hbs);
+        .await;
+    if hbs_.is_err() {
+        return Err(MyError::StringError("获取红包数据出错".to_string()));
+    }
+    let hbs = hbs_.unwrap();
+    app.emit("db", json!({"action":"update","task_msg":format!("找到{:?}个红包", hbs.len()), "seq":seq})).unwrap();
     //let mut hb_canyu_count = 0; //红包参与次数
     let mut hb_win_count = 0; //红包获胜次数
     let mut hb_huode_diamond_count = 0; //红包获得钻石数
@@ -350,12 +376,15 @@ pub async fn hb_logic(
     let mut leave_time = caclulate_leave_time(send_time, delay);
     for el in hbs {
         println!("每个点击按钮 {:?}", el);
-        let is_gift = el
+        let is_gift_ = el
             .query(By::ClassName("list_container_exp1-left"))
-            .wait(Duration::from_secs(2), Duration::from_millis(10))
+            .wait(Duration::from_secs(2), Duration::from_millis(200))
             .exists()
-            .await?;
-        println!("is gift {:?}", is_gift);
+            .await;
+        if is_gift_.is_err() {
+            return Err(MyError::StringError("检测是否礼物出错".to_string()));
+        }
+        let is_gift = is_gift_.unwrap();
         if is_gift {
             driver
                 .action_chain()
@@ -369,14 +398,15 @@ pub async fn hb_logic(
             all_gift = false;
             let btn = el
                 .query(By::Css(".snatch_button_container.snatch_button_container_stage1.snatch_button_container_stage2"))
-                .wait(Duration::from_secs(2), Duration::from_millis(100))
+                .wait(Duration::from_secs(2), Duration::from_millis(300))
                 .first()
                 .await;
             if btn.is_err() {
-                println!("抢按钮未找到 {:?}", btn.err().unwrap());
+                //println!("抢按钮未找到 {:?}", btn.err().unwrap());
+                app.emit("db", json!({"action":"update","task_msg":"未找到按钮", "seq":seq})).unwrap();
                 break;
             } else {
-                println!("找到抢按钮 ");
+                app.emit("db", json!({"action":"update","task_msg":"找到按钮", "seq":seq})).unwrap();
             }
 
             let btn_unwrap = btn.unwrap();
@@ -398,7 +428,7 @@ pub async fn hb_logic(
 
             let timer = el
                 .query(By::Css(".count_down_canvas_container_exp"))
-                .wait(Duration::from_secs(2), Duration::from_millis(10))
+                .wait(Duration::from_secs(2), Duration::from_millis(200))
                 .first()
                 .await;
             if timer.is_err() {
@@ -413,30 +443,29 @@ pub async fn hb_logic(
                     println!("timer text is: {:?}", txt);
                     if let Some(c) = txt {
                         let sec = paser_timer(&c);
-                        println!("等待 {:?} 秒红包结束", sec);
                         if sec > 0 {
                             let mut rng = rand::rng();
                             let rand_number = rng.random_range(3..10);
                             leave_time = sec as u64 + rand_number;
                             println!("设置等待时间为 {:?}", leave_time);
+                            app.emit("db", json!({"action":"update","task_msg":format!("等{:?}秒离开", leave_time), "seq":seq})).unwrap();
                         }
                     }
                 }
             }
 
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_millis(300)).await;
             //hb_canyu_count += 1;
         }
     }
 
     if all_gift {
-        let _ = app.emit("db", json!({"action":"update","task_msg":"全部礼物红包，下一个", "hongbao_canyu_count":1, "dy_name":dy_name,  "dy_account":dy_account, "seq":seq  }));
+        app.emit("db", json!({"action":"update","task_msg":"全部礼物红包，下一个", "hongbao_canyu_count":1, "dy_name":dy_name,  "dy_account":dy_account, "seq":seq  })).unwrap();
         return Ok(());
     }
 
-    let _ = app.emit("db", json!({"action":"update","hongbao_canyu_count": 1, "task_msg":"执行完成抢红包，等待开奖结果", "dy_name":dy_name, "dy_account":dy_account, "seq":seq  }));
-    println!("等待 {:?} 秒开奖结果", leave_time);
-    sleep(Duration::from_secs(leave_time)).await;
+    app.emit("db", json!({"action":"update","task_msg":"执行完成抢红包，等待开奖结果", "dy_name":dy_name, "dy_account":dy_account, "seq":seq  })).unwrap();
+    sleep(Duration::from_secs(leave_time)).await; //等待出结果
 
     let i = 0;
     for el in hbs_clone {

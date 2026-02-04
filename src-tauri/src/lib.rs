@@ -478,6 +478,8 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 .await
                 .unwrap();
 
+            tokio::time::sleep(Duration::from_mins(2)).await; //等2分钟再开dd
+
             let r = bit::parse_user_info(&driver).await;
             let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq}));
             if r.is_err() {
@@ -504,7 +506,6 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
             let state_clone = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut has_closed_all = false;
 
-            tokio::time::sleep(Duration::from_mins(2)).await; //等2分钟再开dd
 
             loop {
                 let running = {
