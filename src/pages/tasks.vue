@@ -56,7 +56,7 @@
                         @current-change="historyPagerCurrentChange"></el-pagination>
                 </div>
             </el-tab-pane>
-            <el-tab-pane label="福袋任务" name="task">
+            <el-tab-pane label="任务面板" name="task">
                 <el-container size="small">
                     <el-main>
                         <div class="config-box mb-10">

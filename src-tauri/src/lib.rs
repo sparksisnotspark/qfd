@@ -535,10 +535,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
 
                 let room_json = gather::async_fetch_room(&token, &tp, &json_).await;
                 if room_json.is_err() {
-                    let s = format!(
-                        "获取服务器房间数据失败{:?} 等5秒再试",
-                        room_json.err().unwrap()
-                    );
+                    let s = "获取直播间信息超时,等待5秒再试";
                     println!("{:?}", s);
                     app.emit("db", json!({"action":"update", "task_msg":s, "seq":seq}))
                         .unwrap();
@@ -546,18 +543,12 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                     continue;
                 }
 
-                app.emit(
-                    "db",
-                    json!({"action":ACT_UPDATE, "task_msg":"开始获取直播间数据", "seq":seq}),
-                )
-                .unwrap();
-
                 let room_json = room_json.unwrap();
                 let data = room_json["data"].as_array().unwrap();
                 if data.is_empty() {
                     let s = format!("data is empty here: {:?} 等待3秒", data);
                     println!("{:?}", s);
-                    app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"沒有直播間等待5秒再试", "seq":seq})).unwrap();
+                    app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待5秒再试", "seq":seq})).unwrap();
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
@@ -565,7 +556,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 let title = data[0]["title"].as_str().unwrap();
                 app.emit(
                     "db",
-                    json!({"action":"update", "task_msg":title, "seq":seq}),
+                    json!({"action":"update", "task_msg":format!("获取直播间{:?}", title), "task_name":task_name, "seq":seq}),
                 )
                 .unwrap();
 
@@ -591,7 +582,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                         .await;
                     if x.is_err() {
                         let err = x.err().unwrap().to_string();
-                        app.emit("db", json!({"action":ACT_UPDATE,"task_msg":err, "seq":seq}))
+                        app.emit("db", json!({"action":ACT_UPDATE,"task_msg":format!("hb logic {:?}", err), "seq":seq}))
                             .unwrap();
                     }
                 } else if tp == "fd" {
@@ -601,7 +592,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                         let err_str = logic.err().unwrap().to_string();
                         app.emit(
                             "db",
-                            json!({"action":ACT_UPDATE, "seq":seq, "task_msg":err_str}),
+                            json!({"action":ACT_UPDATE, "seq":seq, "task_msg":format!("fd logic error {:?}", err_str)}),
                         )
                         .unwrap();
                     } else {

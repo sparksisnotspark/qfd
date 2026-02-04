@@ -6,6 +6,7 @@ use std::{collections::HashMap, time::Duration};
 
 //const API_URL: &str = "http://127.0.0.1:8787";
 const API_URL: &str = "http://193.134.211.160:8787";
+const DEFAULT_TIMEOUT: u64 = 60;
 
 pub async fn async_fetch_room(
     app_key: &str,
@@ -18,7 +19,7 @@ pub async fn async_fetch_room(
     let resp = client
         .get(url)
         .json(&json)
-        .timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("app-key", app_key)
         .header("Content-Type", "application/json")
         .send()
@@ -31,6 +32,7 @@ pub async fn get_ip() -> Result<serde_json::Value, MyError> {
     let client = Client::new();
     let resp = client
         .get("http://ip-api.com/json")
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .send()
         .await?
@@ -44,6 +46,7 @@ pub async fn check_token_expired(app_key: &str) -> Result<serde_json::Value, MyE
     let client = Client::new();
     let resp = client
         .get(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("Content-Type", "application/json")
         .header("app-key", app_key)
         .send()
@@ -59,6 +62,7 @@ pub fn sync_fetch_room(app_key: &str, tp: &str) -> Result<serde_json::Value, MyE
     let resp = client
         .get(url)
         .json(&json)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("app-key", app_key)
         .header("Content-Type", "application/json")
         .send()?;
@@ -71,6 +75,7 @@ pub async fn fetch_dy_room(cookie_str: &str) -> Result<serde_json::Value, MyErro
     let client = Client::new();
     let resp = client
         .get(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::USER_AGENT, "MMozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .header(reqwest::header::COOKIE, cookie_str)
@@ -87,6 +92,7 @@ pub fn sync_fetch_dy_room(cookie: String) -> Result<serde_json::Value, MyError> 
     let client = reqwest::blocking::Client::new();
     let resp = client
         .get(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .header(reqwest::header::ACCEPT, "application/json, text/javascript, */*; q=0.01")
@@ -112,6 +118,7 @@ pub async fn user_login_system(
     params.insert("token", token);
     let resp = client
         .post(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .form(&params)
         .send()
         .await?
@@ -131,6 +138,7 @@ pub fn parse_luckbox_info(
     let client = reqwest::blocking::Client::new();
     let resp = client
         .get(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .header(
             reqwest::header::REFERER,
@@ -230,7 +238,7 @@ pub fn parse_lottery_info(
             reqwest::header::REFERER,
             format!("https://live.douyin.com/{}", web_rid),
         )
-        .timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::USER_AGENT, agent)
         .header(reqwest::header::COOKIE, cookie)
         .send()?;
@@ -331,6 +339,7 @@ pub async fn add_one_room(token: &str, params: serde_json::Value) -> Result<(), 
     let client = Client::new();
     let r = client
         .post(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("app-key", token)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .json(&params)
@@ -348,6 +357,7 @@ pub fn sync_add_one_room(token: &str, params: serde_json::Value) -> Result<(), M
     let client = reqwest::blocking::Client::new();
     let r = client
         .post(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("app-key", token)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .json(&params)

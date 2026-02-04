@@ -19,19 +19,19 @@ pub fn monitor() -> Vec<String> {
 
 #[derive(Error, Debug)]
 pub enum MyError {
-    #[error("Error From tauri")]
+    #[error("string error")]
     StringError(String),
 
-    #[error("tauri error for this")]
+    #[error("tauri error")]
     TauriError,
 
-    #[error("error from webdriver")]
+    #[error("webdriver error")]
     WebDriverError(#[from] WebDriverError),
 
-    #[error("error from reqwest")]
+    #[error("reqwest error")]
     RequestError(#[from] reqwest::Error),
 
-    #[error("error from serde json")]
+    #[error("serder json error")]
     SerdeError(#[from] serde_json::Error),
 }
 
@@ -292,7 +292,10 @@ pub async fn hb_logic(
     seq: &str,
     options: &serde_json::Value,
 ) -> Result<(), MyError> {
-    driver.goto(room_url).await?;
+    let rg_ = driver.goto(room_url).await;
+    if rg_.is_err() {
+        return Err(MyError::StringError("进直播间出错".to_string()));
+    }
     println!("options is {:?}", options);
     sleep(Duration::from_secs(1)).await;
 
@@ -310,16 +313,18 @@ pub async fn hb_logic(
     }
     let el = el_.unwrap();
     el.wait_until().clickable().await?;
-    
+
     let x = driver
         .action_chain()
         .move_to_element_center(&el)
         .click()
         .perform()
         .await;
+
     if x.is_err() {
         return Err(MyError::StringError("点击红包出错".to_string()));
     }
+
     let iframe_ = driver
         .query(By::Css("div#short_touch_land_redpacket_land > iframe"))
         .first()
@@ -330,15 +335,23 @@ pub async fn hb_logic(
     }
     let iframe = iframe_.unwrap();
     println!("find redpacket iframe");
-    iframe.enter_frame().await?;
+    let entry_iframe_ = iframe.enter_frame().await;
+    if entry_iframe_.is_err() {
+        return Err(MyError::StringError(
+            "Entry Packet Iframe Error".to_string(),
+        ));
+    }
+
     let shadow_root__ = driver
         .query(By::Tag("lynx-view"))
         .wait(Duration::from_secs(3), Duration::from_millis(50))
         .first()
         .await;
+
     if shadow_root__.is_err() {
         return Err(MyError::StringError("R框未找到".to_string()));
     }
+
     let shadow_root_ = shadow_root__.unwrap().get_shadow_root().await;
     if shadow_root_.is_err() {
         return Err(MyError::StringError("SR未找到".to_string()));
@@ -365,7 +378,11 @@ pub async fn hb_logic(
         return Err(MyError::StringError("获取红包数据出错".to_string()));
     }
     let hbs = hbs_.unwrap();
-    app.emit("db", json!({"action":"update","task_msg":format!("找到{:?}个红包", hbs.len()), "seq":seq})).unwrap();
+    app.emit(
+        "db",
+        json!({"action":"update","task_msg":format!("找到{:?}个红包", hbs.len()), "seq":seq}),
+    )
+    .unwrap();
     //let mut hb_canyu_count = 0; //红包参与次数
     let mut hb_win_count = 0; //红包获胜次数
     let mut hb_huode_diamond_count = 0; //红包获得钻石数
@@ -403,10 +420,18 @@ pub async fn hb_logic(
                 .await;
             if btn.is_err() {
                 //println!("抢按钮未找到 {:?}", btn.err().unwrap());
-                app.emit("db", json!({"action":"update","task_msg":"未找到按钮", "seq":seq})).unwrap();
+                app.emit(
+                    "db",
+                    json!({"action":"update","task_msg":"未找到按钮", "seq":seq}),
+                )
+                .unwrap();
                 break;
             } else {
-                app.emit("db", json!({"action":"update","task_msg":"找到按钮", "seq":seq})).unwrap();
+                app.emit(
+                    "db",
+                    json!({"action":"update","task_msg":"找到按钮", "seq":seq}),
+                )
+                .unwrap();
             }
 
             let btn_unwrap = btn.unwrap();
@@ -501,7 +526,11 @@ pub async fn hb_logic(
                     .wait(Duration::from_secs(3), Duration::from_millis(50))
                     .first()
                     .await;
-                if !rawtext.is_ok() {}
+                if !rawtext.is_ok() {
+                    println!("raw text is not ok!");
+                    continue;
+                }
+
                 let text = rawtext.unwrap().attr("text").await.unwrap();
 
                 if !text.is_none() {
@@ -512,7 +541,6 @@ pub async fn hb_logic(
                         let re = lazy_regex::regex!(r"(\d+)");
                         if let Some(c) = re.captures(&text.as_str()) {
                             let huode = c.get(1).unwrap().as_str().parse::<i32>().unwrap();
-                            println!("huode diamonds is: {:?}", huode);
                             hb_huode_diamond_count += huode;
                         }
                     } else {
@@ -698,18 +726,28 @@ pub async fn fd_logic(
 }
 
 pub async fn parse_user_diamond(driver: &WebDriver) -> Result<i32, MyError> {
-    driver.enter_default_frame().await?;
+    let p_ = driver.enter_default_frame().await;
+    if p_.is_err() {
+        return Err(MyError::StringError(
+            "Parase User Diamond Error".to_string(),
+        ));
+    }
     let exists = driver
         .query(By::Css(".btn.e6kEVm7K > div"))
         .wait(Duration::from_secs(3), Duration::from_millis(30))
         .exists()
         .await;
     if exists.is_ok() {
-        let diamond = driver
+        let diamond_ = driver
             .query(By::Css(".btn.e6kEVm7K > div"))
             .wait(Duration::from_secs(3), Duration::from_millis(20))
             .first()
-            .await?;
+            .await;
+        if diamond_.is_err() {
+            return Err(MyError::StringError("解析用户钻石失败".to_string()));
+        }
+        let diamond = diamond_.unwrap();
+
         println!("diamond is: {:?}", diamond);
         let text = diamond.text().await;
         if text.is_err() {
@@ -725,7 +763,7 @@ pub async fn parse_user_diamond(driver: &WebDriver) -> Result<i32, MyError> {
             return Ok(diamond);
         }
     } else {
-        println!("未找到钻石字段");
+        return Err(MyError::StringError("不存在钻石元素".to_string()));
     }
     Err(MyError::StringError("未找到这个".to_string()))
 }
@@ -783,13 +821,15 @@ pub async fn get(
         reqwest::header::COOKIE,
         header::HeaderValue::from_str(&cookie.as_str()).unwrap(),
     );
-    let client = reqwest::Client::builder().default_headers(header).build()?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .default_headers(header)
+        .build()?;
     let resp = client.get(url).send().await?;
     let data = resp.text().await?;
     println!("room is {:?}", data);
     Ok(rooms)
 }
-
 
 pub async fn post(url: String, cookie: String, params: serde_json::Value) -> Result<String, Error> {
     let mut header = header::HeaderMap::new();
@@ -798,6 +838,7 @@ pub async fn post(url: String, cookie: String, params: serde_json::Value) -> Res
         header::HeaderValue::from_str(&cookie.as_str()).unwrap(),
     );
     let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
         .default_headers(header)
         .build()
         .unwrap();
@@ -805,9 +846,6 @@ pub async fn post(url: String, cookie: String, params: serde_json::Value) -> Res
     let data = resp.text().await?;
     Ok(data)
 }
-
-//从服务器获取
-pub async fn fetch_room_info_from_server() {}
 
 pub fn chromedrive_start(chromedrive_path: String) -> Result<String, Box<dyn error::Error>> {
     println!("items {:?}", chromedrive_path);
