@@ -18,7 +18,7 @@
                         <el-button type="danger" @click="onSubmit">清空所有数据</el-button>
                     </el-form-item>
                 </el-form>
-                <el-table :data="userHistory" size="small" style="width: 100%" max-height="600" border show-summary
+                <el-table :data="userHistory" size="small" style="width: 100%" max-height="800" min-height="700" border show-summary
                     :summary-method="sumHistory">
                     <el-table-column type="selection" width="50" align="center" label="#" />
                     <el-table-column prop="seq" label="C#" align="center" width="50" show-overflow-tooltip />
@@ -82,10 +82,12 @@
                                     </el-form-item>
 
                                     <!--一般是比特浏览器的数量大一点-->
+                                    <!--
                                     <el-form-item label="线程数量">
                                         <el-input-number style="width: 100px" v-model="browserOptions.thread_number
                                             " :min="1" :max="50" placeholder="线程数量" type="number"></el-input-number>
                                     </el-form-item>
+                                    -->
 
                                     <el-form-item label="二次奖概率">
                                         <el-input-number v-model="browserOptions.second_prize_rate
@@ -221,7 +223,7 @@
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
                                 <p>当前版本: v{{app_version}}</p>
-                                <p>当前IP: {{ cur_remote_ip }}</p>
+                                <p>IP: {{ cur_remote_ip }}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
                             </div>
                         </div>
@@ -297,10 +299,11 @@ const get_ip = async () => {
         let res = await invoke("get_ip");
         console.log(res, "remote");
         if (res.query != undefined && res.query) {
-            remote_ip.value = res.query;
+            cur_remote_ip.value = res.query;
         }
         ElMessage.success("获取IP成功");
     } catch (e) {
+        console.log("exception for this is:", e);
         ElMessage.warning("获取IP失败");
     }
 };
@@ -420,7 +423,7 @@ const searchOptions = reactive({
 });
 
 const browserOptionsDisabled = ref(false); //浏览器表单是否enabled
-const browserOptions = reactive({
+let browserOptions = reactive({
     tp: "hb", //福袋或紅包
     up_limit: 10, //抢福袋上限
     thread_number: 5, //采集数据的线程数量
@@ -431,13 +434,13 @@ const browserOptions = reactive({
     can_used_times: 2,
 });
 
-const spiderOptions = reactive({
+let spiderOptions = reactive({
     enable_spider: false, //启用采集
     thread_number: 8, //采集线程数量
     winning_ratio: 9, //中奖比例
     people_limit: 1000, //人数限制
-    min_time: 10, //最小时间(秒)
-    max_time: 30, //最大时间(秒)
+    min_time: 25, //最小时间(秒)
+    max_time: 400, //最大时间(秒)
     join_fans_group: false, //参与粉丝团
     live_square_ck: "", //直播广场CK
     only_big_packet: false, //只采集大包
@@ -446,7 +449,7 @@ const spiderOptions = reactive({
     ip_fetch_url: "", //IP获取链接
 });
 
-const windowOptions = reactive({
+let windowOptions = reactive({
     auto_arrange: false, //自动排列窗口
     x_offset: 60, //x坐标偏移
     y_offset: 18, //Y坐标偏移
@@ -572,14 +575,14 @@ const cjBFHandler = () => {
                 let hasRun = spiderOptions.enable_spider;
                 if (hasRun) {
                     spiderEditDisabled.value = false;
-                    await invoke("sync_stop_spider");
+                    await invoke("spider_with_multiple_threads_stop");
                     ElMessage.success("采集停止成功");
                     return resolve(true);
                 } else {
                     //采集未启动，则启动采集
                     try {
                         spiderEditDisabled.value = true;
-                        let res = await invoke("sync_start_spider", {
+                        let res = await invoke("spider_with_multiple_threads", {
                             options: spiderOptions,
                             gatherType: browserOptions.tp,
                         });

@@ -26,12 +26,15 @@ pub async fn async_fetch_room(
     Ok(json)
 }
 
-pub fn get_ip() -> Result<serde_json::Value, MyError> {
-    let resp = reqwest::blocking::Client::new()
+pub async fn get_ip() -> Result<serde_json::Value, MyError> {
+    let client = Client::new();
+    let resp = client
         .get("http://ip-api.com/json")
         .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .send()?
-        .json::<serde_json::Value>()?;
+        .send()
+        .await?
+        .json()
+        .await?;
     Ok(resp)
 }
 
@@ -204,9 +207,7 @@ pub fn parse_luckbox_info(
         return Err(MyError::StringError("没有找到红包信息".to_string()));
     }
 
-    Err(MyError::StringError(
-        "每个包小于最小的红包".to_string(),
-    ))
+    Err(MyError::StringError("每个包小于最小的红包".to_string()))
 }
 
 pub fn parse_lottery_info(
@@ -257,7 +258,10 @@ pub fn parse_lottery_info(
                 }
             });
 
-            println!("only big package {:?} people limit {:?}", only_big_packet, people_limit);
+            println!(
+                "only big package {:?} people limit {:?}",
+                only_big_packet, people_limit
+            );
 
             if need_diamond > 0 && join_fans_group == false {
                 println!("需要加粉丝团, 粉丝团没有打勾");
@@ -266,16 +270,29 @@ pub fn parse_lottery_info(
 
             let per_pack = prize_count as f64 / lucky_count as f64;
 
-            if per_pack < min_avg_diamond as f64 { // 大于等于表示OK
+            if per_pack < min_avg_diamond as f64 {
+                // 大于等于表示OK
                 println!("福袋金额太小 {:?} {:?}", per_pack, min_avg_diamond);
-                return Err(MyError::StringError(format!("福袋金额太小 per pack {:?} lucky count: {:?}", per_pack, lucky_count).to_string()));
+                return Err(MyError::StringError(
+                    format!(
+                        "福袋金额太小 per pack {:?} lucky count: {:?}",
+                        per_pack, lucky_count
+                    )
+                    .to_string(),
+                ));
             }
 
             let rate = lucky_count as f64 / candidate_num as f64;
 
             if rate * 100.0 < winning_ratio as f64 {
                 println!("中奖率问题 {:?} {:?}", rate * 100.0, winning_ratio);
-                return Err(MyError::StringError(format!("中奖率太低 lucky count{:?}  抢的人{:?}", lucky_count, candidate_num).to_string()));
+                return Err(MyError::StringError(
+                    format!(
+                        "中奖率太低 lucky count{:?}  抢的人{:?}",
+                        lucky_count, candidate_num
+                    )
+                    .to_string(),
+                ));
             }
 
             let title = s.join(",");

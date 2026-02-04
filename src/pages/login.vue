@@ -189,7 +189,7 @@ const loginInfo = reactive({
 });
 
 const router = useRouter();
-const registerInfo = reactive({
+let registerInfo = reactive({
     username: "",
     password: "",
     confirm_password: "",
@@ -216,13 +216,13 @@ const registerRules = {
     ],
     password: [{ required: true, trigger: "blur", message: "密码不能为空" }],
 };
-const unboundInfo = reactive({
+let unboundInfo = reactive({
     username: "",
 });
 const unboundRules = {
     username: [{ required: true, trigger: "blur", message: "用户名不能为空" }],
 };
-const rechage = reactive({
+let rechage = reactive({
     username: "",
     keycode: "",
 });

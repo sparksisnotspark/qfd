@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::mpsc};
+use std::collections::HashMap;
 #[allow(unused)]
 use std::{
     error, thread,
@@ -60,10 +60,12 @@ async fn fetch_bitbrowser_group() -> Result<Vec<(String, String)>, String> {
 }
 
 #[tauri::command]
-fn get_ip() -> Result<serde_json::Value, String> {
-    let res = gather::get_ip();
+async fn get_ip() -> Result<serde_json::Value, String> {
+    let res = gather::get_ip().await;
     if res.is_err() {
-        return Err(format!("{:?}", res.err().unwrap()));
+        let err = res.err().unwrap();
+        println!("error is: {:?}", err);
+        return Err(format!("{:?}", err));
     }
     Ok(res.unwrap())
 }
@@ -126,7 +128,8 @@ fn sync_start_spider(
             }
             app.emit("log", "Go... spider").unwrap();
 
-            let rooms: Result<serde_json::Value, bit::MyError> = gather::sync_fetch_dy_room(cookie_.to_string());
+            let rooms: Result<serde_json::Value, bit::MyError> =
+                gather::sync_fetch_dy_room(cookie_.to_string());
             if rooms.is_err() {
                 let err = rooms.err().unwrap();
                 println!("获取服务器房间数据失败 {:?}", err);
@@ -460,6 +463,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 res["msg"].as_str().unwrap()
             ));
         }
+
         println!("res of this: {:?}", res);
         let dr = res["data"]["driver"].as_str().unwrap().to_string();
         let http = res["data"]["http"].as_str().unwrap().to_string();
@@ -470,7 +474,6 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         let task_name = task_name.clone();
         let json_ = json.clone();
         tokio::spawn(async move {
-
             let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str())
                 .await
                 .unwrap();
@@ -492,8 +495,12 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
             let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
             let dy_account = dy_account[1].to_string();
             println!("dy name {:?} dy account {:?}", dy_name, dy_account);
-            app.emit("log", format!("name {:?} account: {:?}", dy_name, dy_account)).unwrap();
-            let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE,"task_name": task_name, "task_msg":"更新抖音名称", "dy_name":dy_name, "dy_account":dy_account, "seq":seq}));
+            app.emit(
+                "log",
+                format!("name {:?} account: {:?}", dy_name, dy_account),
+            )
+            .unwrap();
+            app.emit("db", json!({ACT_NAME:ACT_UPDATE,"task_name": task_name, "task_msg":"更新抖音名称", "dy_name":dy_name, "dy_account":dy_account, "seq":seq})).unwrap();
             let state_clone = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut has_closed_all = false;
 
@@ -530,25 +537,40 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
 
                 let room_json = gather::async_fetch_room(&token, &tp, &json_).await;
                 if room_json.is_err() {
-                    println!(
-                        "获取服务器房间数据失败 {:?}等5秒再试",
+                    let s = format!(
+                        "获取服务器房间数据失败{:?} 等5秒再试",
                         room_json.err().unwrap()
                     );
+                    println!("{:?}", s);
+                    app.emit("db", json!({"action":"update", "task_msg":s, "seq":seq}))
+                        .unwrap();
                     tokio::time::sleep(Duration::from_secs(5)).await;
                     continue;
                 }
 
+                app.emit(
+                    "db",
+                    json!({"action":ACT_UPDATE, "task_msg":"开始获取直播间数据", "seq":seq}),
+                )
+                .unwrap();
+
                 let room_json = room_json.unwrap();
-                println!("room_josn{:?}", room_json);
                 let data = room_json["data"].as_array().unwrap();
                 if data.is_empty() {
-                    println!("data is empty here: {:?} 等待3秒", data);
-                    let _ = app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"查找直播音等待5秒", "seq":seq}));
+                    let s = format!("data is empty here: {:?} 等待3秒", data);
+                    println!("{:?}", s);
+                    app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"沒有直播間等待5秒再试", "seq":seq})).unwrap();
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
 
-                println!("data is {:?}", data);
+                let title = data[0]["title"].as_str().unwrap();
+                app.emit(
+                    "db",
+                    json!({"action":"update", "task_msg":title, "seq":seq}),
+                )
+                .unwrap();
+
                 let send_time = data[0].get("send_time").unwrap().as_u64().unwrap();
                 let delay = data[0].get("delay").unwrap().as_u64().unwrap();
                 let leave_time = bit::caclulate_leave_time(send_time, delay);
@@ -566,23 +588,28 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                     "join_fans_group": join_fans_group,
                 });
                 if tp == "hb" {
-                    let app = app.clone();
+                    //let app = app.clone();
                     let x = bit::hb_logic(&app, &driver, room_url.as_str(), seq.as_str(), &options)
                         .await;
-                    println!("红包执行结果： {:?}", x);
                     if x.is_err() {
-                        println!(
-                            "error of this is: {:?}",
-                            x.err().take().unwrap().to_string()
-                        );
+                        let err = x.err().unwrap().to_string();
+                        app.emit("db", json!({"action":ACT_UPDATE,"task_msg":err, "seq":seq}))
+                            .unwrap();
                     }
                 } else if tp == "fd" {
                     let logic =
                         bit::fd_logic(&app, &driver, &room_url, seq.as_str(), &options).await;
                     if logic.is_err() {
-                        println!("福袋执行失败 {:?}", logic.err().unwrap());
+                        let err_str = logic.err().unwrap().to_string();
+                        app.emit(
+                            "db",
+                            json!({"action":ACT_UPDATE, "seq":seq, "task_msg":err_str}),
+                        )
+                        .unwrap();
                     } else {
-                        println!("福袋执行成功 {:?}", logic.ok().unwrap());
+                        let s = format!("福袋执行成功 {:?}", logic.ok().unwrap());
+                        app.emit("db", json!({"action":ACT_UPDATE, "seq":seq, "task_msg":s}))
+                            .unwrap();
                     }
                 }
                 println!("waiting for leaving live room {:?}", leave_time);
@@ -605,12 +632,26 @@ async fn stop_automation() -> Result<(), tauri::Error> {
     Ok(())
 }
 
+#[tauri::command]
+fn spider_with_multiple_threads_stop(app: AppHandle) -> Result<String, tauri::Error> {
+    app.emit("log", "success stop multiple threads spider")
+        .unwrap();
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let mut state_ = state.lock().unwrap();
+        state_.is_spider_running = false;
+    }
+    Ok("Success stop spider".to_string())
+}
 
 #[tauri::command]
-fn spider_with_multiple_threads(app:AppHandle, options:serde_json::Value, gather_type:&str) -> Result<(), String> {
+fn spider_with_multiple_threads(
+    app: AppHandle,
+    options: serde_json::Value,
+    gather_type: &str,
+) -> Result<(), String> {
     let threads = options["thread_number"].as_i64().unwrap();
-    println!("what is this params is: {:?}", threads);
-    let _ = app.emit("notify", "start spider success!"); //直接发射，不需要获得结果
+    app.emit("notify", "start spider success!").unwrap(); //直接发射，不需要获得结果
     let store = app.app_handle().store(APP_STORE_NAME).unwrap();
     let token = store.get("token").unwrap().as_str().unwrap().to_string();
     let cookies_stack: Vec<String> = match store.get("cookies") {
@@ -623,19 +664,99 @@ fn spider_with_multiple_threads(app:AppHandle, options:serde_json::Value, gather
         None => return Err("error cookie is empty~!".to_string()),
     };
     let gather_type = gather_type.to_string();
-    println!("gather type is: {:?}", gather_type);
     let length = cookies_stack.len();
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
         let mut state_ = state.lock().unwrap();
         state_.is_spider_running = true;
     }
-    for i in 0..threads {
+
+    for th in 0..threads {
+        let app_ = app.clone();
+        let _ = app_.emit("log", format!("线程{:?}开启", th)).unwrap();
+        let _token = token.clone();
+        let _tp = gather_type.clone();
+        let _m_cookie_stack = cookies_stack.clone();
+        let _options = options.clone();
+        thread::spawn(move || {
+            let mut rng = rand::rng();
+            let rand_number = rng.random_range(3000..5000);
+            std::thread::sleep(Duration::from_millis(rand_number));
+            app_.emit("log", format!("线程{:?}开始采集", th)).unwrap();
+            loop {
+                {
+                    let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                    let state_ = state.lock().unwrap();
+                    if state_.is_spider_running == false {
+                        app_.emit("log", format!("结束{:?}线程", th)).unwrap();
+                        break;
+                    }
+                }
+
+                let rooms = gather::sync_fetch_dy_room(_m_cookie_stack[0].as_str().to_string());
+                if rooms.is_err() {
+                    let err = rooms.err().unwrap();
+                    app_.emit("log", format!("some error is: {:?}", err))
+                        .unwrap();
+                    std::thread::sleep(Duration::from_secs(3));
+                    continue;
+                }
+
+                let rooms = rooms.unwrap();
+                let data = rooms["data"].as_array();
+                if data.is_none() {
+                    let _ = app_.emit("log", "no data for room").unwrap();
+                    std::thread::sleep(Duration::from_secs(3));
+                    continue;
+                }
+
+                let mut i = 0;
+                let mut room_count = 0;
+                for room in data.unwrap() {
+                    let web_rid = room["web_rid"].as_str().unwrap();
+                    let room_id = room["data"]["id_str"].as_str().unwrap();
+                    let title = room["data"]["title"].as_str().unwrap();
+                    let owner_nickname = room["data"]["owner"]["nickname"].as_str().unwrap();
+                    let user_count = room["data"]["user_count"].as_i64().unwrap();
+                    let index = i % length;
+                    let cookie__ = _m_cookie_stack.get(index).unwrap().to_string();
+                    let mut rng = rand::rng();
+                    let rand_number = rng.random_range(1000..=3000);
+                    let json_data = json!({
+                        "room_id": room_id.to_string(),
+                        "web_rid":web_rid.to_string(),
+                        "title":title.to_string(),"type":_tp, "cookie":cookie__, "token": _token, "sleep":rand_number,
+                        "options":_options,
+                    });
+                    threads::execute_gather(json_data, &app_);
+                    i = i + 1;
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    room_count = room_count + 1;
+
+                    {
+                        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                        let mut state_ = state.lock().unwrap();
+                        state_.total += room_count;
+                        app_.emit(
+                            "log",
+                            format!("本轮采集完成，线程结束，采集房间数: {}", room_count),
+                        )
+                        .unwrap();
+                        app_.emit("spider", json!({"total":state_.total, "allowed_count": state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+                    }
+                    let payload = format!(
+                        "web rid: {:?} room id: {:?} title: {:?} owner_nick {:?} user count {:?}",
+                        web_rid, room_id, title, owner_nickname, user_count
+                    );
+                    app_.emit("log", payload).unwrap();
+                }
+            }
+        });
     }
     Ok(())
 }
 
-/* 
+/*
 #[tauri::command]
 async fn check_token_expired(app:AppHandle, _token: &str) -> Result<(), String> {
     //模拟检查token是否过期
@@ -673,7 +794,8 @@ async fn stop_test() -> Result<(), tauri::Error> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
-    builder.setup(|app| {
+    builder
+        .setup(|app| {
             let app_state = Arc::new(Mutex::new(AppState::default()));
             // store in tauri managed state as well as global OnceLock for handlers
             app.manage(app_state.clone());
@@ -689,6 +811,8 @@ pub fn run() {
             sync_start_spider,
             sync_stop_spider,
             fetch_bitbrowser_group,
+            spider_with_multiple_threads_stop,
+            spider_with_multiple_threads,
             get_ip,
             bit_group_browsers,
             browser_windows_open,
