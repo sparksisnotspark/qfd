@@ -18,6 +18,7 @@ pub async fn async_fetch_room(
     let resp = client
         .get(url)
         .json(&json)
+        .timeout(Duration::from_secs(30))
         .header("app-key", app_key)
         .header("Content-Type", "application/json")
         .send()
