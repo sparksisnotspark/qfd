@@ -13,12 +13,14 @@
     padding: 0;
     margin: 0;
 }
+
 html,
 body,
 html body {
     margin: 0;
     padding: 0;
 }
+
 #app {
     margin: 0;
     padding: 0;

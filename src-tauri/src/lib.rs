@@ -581,7 +581,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                     let x = bit::hb_logic(&app, &driver, room_url.as_str(), seq.as_str(), &options)
                         .await;
                     if x.is_err() {
-                        let err = x.err().unwrap().to_string();
+                        let err = x.err().unwrap();
                         app.emit("db", json!({"action":ACT_UPDATE,"task_msg":format!("hb logic {:?}", err), "seq":seq}))
                             .unwrap();
                     }
@@ -589,7 +589,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                     let logic =
                         bit::fd_logic(&app, &driver, &room_url, seq.as_str(), &options).await;
                     if logic.is_err() {
-                        let err_str = logic.err().unwrap().to_string();
+                        let err_str = logic.err().unwrap();
                         app.emit(
                             "db",
                             json!({"action":ACT_UPDATE, "seq":seq, "task_msg":format!("fd logic error {:?}", err_str)}),

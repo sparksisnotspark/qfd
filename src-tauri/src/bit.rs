@@ -205,14 +205,6 @@ pub async fn browser_closeall() -> Result<(), Error> {
         .timeout(Duration::from_secs(30))
         .send()
         .await;
-    /*
-    unsafe {
-        for child in &mut CHILD_PROCESS {
-            let _ = child.kill();
-        }
-        CHILD_PROCESS.clear();
-    }
-    */
     Ok(())
 }
 
