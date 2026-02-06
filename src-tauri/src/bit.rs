@@ -9,6 +9,8 @@ use thirtyfour::prelude::*;
 use thiserror::Error;
 use tokio::time::sleep;
 use tokio::time::Duration;
+
+use crate::GLOBAL_APP_STATE;
 pub const API_URL: &str = "http://127.0.0.1:54345";
 pub const QFD_SERVER_URL: &str = "http://193.134.211.160:8787";
 //static mut CHILD_PROCESS: Vec<std::process::Child> = vec![];
@@ -219,14 +221,18 @@ pub async fn browser_close(browser_id: &str) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn start_selenium_chrome(drive_path: &str, debug_addr: &str) -> Option<WebDriver> {
+pub async fn start_selenium_chrome(
+    drive_path: &str,
+    debug_addr: &str,
+    seq: &str,
+) -> Option<WebDriver> {
     println!(
         "driver path is: {:?} driver addr {:?}",
         drive_path, debug_addr
     );
     let mut caps = DesiredCapabilities::chrome();
     caps.set_debugger_address(&debug_addr).unwrap();
-    let server_url = chromedrive_start(drive_path.to_string()).unwrap();
+    let server_url = chromedrive_start(drive_path.to_string(), seq).unwrap();
     sleep(Duration::from_millis(500)).await;
     let driver = WebDriver::new(server_url, caps).await.unwrap();
     Some(driver)
@@ -284,6 +290,18 @@ pub async fn hb_logic(
     seq: &str,
     options: &serde_json::Value,
 ) -> Result<(), MyError> {
+    let send_time = options["send_time"].as_u64().unwrap();
+    let delay = options["delay"].as_u64().unwrap();
+    let min_time = options["min_time"].as_u64().unwrap(); //最小过期时间
+    let max_time = options["max_time"].as_u64().unwrap(); //最大延迟时间
+    let use_time_strict = options["use_time_strict"].as_bool().unwrap_or(false);
+    let now_time = SystemTime::now();
+    let since_the_epoch = now_time.duration_since(UNIX_EPOCH).expect("Time went back");
+    let now_secs = since_the_epoch.as_secs();
+    if (send_time + delay - now_secs) < min_time {
+        return Err(MyError::StringError("开奖时间太近".to_string()));
+    }
+
     let rg_ = driver.goto(room_url).await;
     if rg_.is_err() {
         return Err(MyError::StringError("进直播间出错".to_string()));
@@ -326,7 +344,6 @@ pub async fn hb_logic(
         return Err(MyError::StringError("查找iframe出错".to_string()));
     }
     let iframe = iframe_.unwrap();
-    println!("find redpacket iframe");
     let entry_iframe_ = iframe.enter_frame().await;
     if entry_iframe_.is_err() {
         return Err(MyError::StringError(
@@ -380,9 +397,8 @@ pub async fn hb_logic(
     let mut hb_huode_diamond_count = 0; //红包获得钻石数
     let hbs_clone = hbs.clone();
     let mut all_gift = true;
-    let send_time = options["send_time"].as_u64().unwrap();
-    let delay = options["delay"].as_u64().unwrap();
     let mut leave_time = caclulate_leave_time(send_time, delay);
+    let mut waiting_list: Vec<u64> = vec![];
     for el in hbs {
         println!("每个点击按钮 {:?}", el);
         let is_gift_ = el
@@ -460,6 +476,7 @@ pub async fn hb_logic(
                     println!("timer text is: {:?}", txt);
                     if let Some(c) = txt {
                         let sec = paser_timer(&c);
+                        waiting_list.push(sec as u64);
                         if sec > 0 {
                             let mut rng = rand::rng();
                             let rand_number = rng.random_range(3..10);
@@ -476,13 +493,35 @@ pub async fn hb_logic(
         }
     }
 
+    if use_time_strict {
+        //严格执行最大与最小时间的设定，因为设置最大时间的时候，如果与现在冲突的时候，以设定的最大值为标准
+        waiting_list.sort();
+        let mut wait_time_ = 0;
+        let mut idx = 0;
+        for (index, value) in waiting_list.iter().enumerate() {
+            if *value > max_time && index > 0 {
+                idx = index - 1;
+                break;
+            }
+        }
+        let mut rand_number = 0;
+        {
+            let mut rng = rand::rng();
+            rand_number = rng.random_range(3..10);
+        }
+        if waiting_list.len() > 0 {
+            wait_time_ = waiting_list[idx];
+        }
+        leave_time = wait_time_ + rand_number;
+    }
+
     if all_gift {
         app.emit("db", json!({"action":"update","task_msg":"全部礼物红包，下一个", "hongbao_canyu_count":1, "dy_name":dy_name,  "dy_account":dy_account, "seq":seq  })).unwrap();
         return Ok(());
     }
 
     app.emit("db", json!({"action":"update","task_msg":"执行完成抢红包，等待开奖结果", "dy_name":dy_name, "dy_account":dy_account, "seq":seq  })).unwrap();
-    sleep(Duration::from_secs(leave_time)).await; //等待出结果
+    tokio::time::sleep(Duration::from_secs(leave_time)).await;
 
     let i = 0;
     for el in hbs_clone {
@@ -786,6 +825,20 @@ pub async fn parse_user_info(driver: &WebDriver) -> Result<(String, String), MyE
     Ok((name, account))
 }
 
+pub async fn check_windows_alive() {
+    //检测比特浏览器是否是活的
+    let mut ids_vec: Vec<String> = vec![];
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let state_ = state.lock().unwrap();
+        for (k, _) in state_.bit_window_list.iter() {
+            ids_vec.push(k.clone());
+        }
+    }
+    let r = bitbroswer_pids_alive(ids_vec).await;
+    println!("result of this is: {:?}", r);
+}
+
 pub async fn close_other_tab(
     driver: &WebDriver,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
@@ -839,12 +892,15 @@ pub async fn post(url: String, cookie: String, params: serde_json::Value) -> Res
     Ok(data)
 }
 
-pub fn chromedrive_start(chromedrive_path: String) -> Result<String, Box<dyn error::Error>> {
+pub fn chromedrive_start(
+    chromedrive_path: String,
+    seq: &str,
+) -> Result<String, Box<dyn error::Error>> {
     println!("items {:?}", chromedrive_path);
     //启动chromedriver
     let port = get_available_port();
     let mut command = std::process::Command::new(chromedrive_path);
-    let _ = command
+    let child_ = command
         .arg(format!("--port={}", port))
         .arg("--host=127.0.0.1")
         .stdout(Stdio::piped())
@@ -852,6 +908,12 @@ pub fn chromedrive_start(chromedrive_path: String) -> Result<String, Box<dyn err
         .creation_flags(0x08000000)
         .spawn()
         .expect("failed to start chromedriver!");
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let mut state_ = state.lock().unwrap();
+        let key = seq.to_string();
+        state_.chrome_driver_child.insert(key, child_);
+    }
     Ok(format!("http://127.0.0.1:{}", port))
 }
 

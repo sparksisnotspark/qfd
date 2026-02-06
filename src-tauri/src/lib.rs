@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, process::Child};
 #[allow(unused)]
 use std::{
     error, thread,
@@ -14,6 +14,8 @@ use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
+use crate::bit::MyError;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 pub mod bit;
 pub mod gather;
@@ -25,7 +27,10 @@ pub struct AppState {
     pub is_automation_running: bool,
     pub total: i32,
     pub allowed_count: i32,
+    pub limit_room: i32, //限制直播间的数量
     pub fd_count: i32,
+    pub chrome_driver_child: HashMap<String, Child>,
+    pub bit_window_list: HashMap<String, String>,
 }
 
 //static mut SPIDER_STOP: bool = false;
@@ -235,208 +240,47 @@ async fn test_login_required(params: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn re_start_automation(app: AppHandle, params: String) -> Result<(), String> {
-    //重新启动自动化任务逻辑跟之前的逻辑是一样子的
+async fn start_automation(app: AppHandle, params: String) -> Result<(), String> {
     let json = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
     let group_ids = json["group_id"].as_array().unwrap();
-    let join_fans_group = json["join_fans_group"].as_bool().unwrap_or(false);
-    let gather_type = json["tp"].as_str().unwrap().to_string();
-    println!("json of this json is: {:?} {:?}", json, gather_type);
     let mut group_id = String::from("");
     if group_ids.len() > 0 {
         group_id = group_ids[0].as_str().unwrap().to_string();
     }
-    let store = app.app_handle().store("app.json").unwrap();
-    let token = store
-        .get("token")
-        .unwrap()
-        .as_str()
-        .to_owned()
-        .unwrap()
-        .to_string();
-    println!("token is: {:?}", token);
 
-    let windows = bit::browser_group_windows(group_id).await.unwrap();
-    let ids: Vec<String> = windows
-        .iter()
-        .map(|x| x["id"].as_str().unwrap().to_string())
-        .collect();
-    println!("ids: xxxxx{:?}", ids);
-    let ids_clone = ids.clone();
-    let fetch_obj = bit::bitbroswer_pids_alive(ids).await.unwrap();
-    println!("fetch alive of bitbrowser json is: {:?}", fetch_obj);
-    let mut alived_windows: Vec<String> = vec![];
-    let mut wait_for_open: Vec<String> = vec![];
-    let s = fetch_obj["data"].as_object().unwrap();
-    //获取整个数据
-    for (k, _) in s.into_iter() {
-        alived_windows.push(k.to_string());
-    }
-
-    for k in ids_clone.into_iter() {
-        if !alived_windows.contains(&k) {
-            wait_for_open.push(k);
-        }
-    }
-
-    //app.emit("db", json!({ACT_NAME:"init_seq", "windows": windows})).unwrap(); //初始化数据表
-    let action_map = HashMap::from([("fd", "福袋任务"), ("hb", "红包任务")]);
-    let task_name = action_map[gather_type.as_str()].to_string();
-    for bid in wait_for_open {
-        let res = bit::browser_detail(bid).await.unwrap();
-        println!("browser detail res is: {:?}", res);
-        let win = res["data"].as_object().unwrap();
-        let seq = win["seq"].as_u64().unwrap().to_string();
-        let browser_id = win["id"].as_str().unwrap().to_string();
-        let res = bit::browser_open(browser_id.as_str()).await.unwrap();
-        let success = res["success"].as_bool().unwrap();
-        if success == false {
-            return Err(format!(
-                "打开浏览器失败，{:?}",
-                res["msg"].as_str().unwrap()
-            ));
-        }
-        println!("res of this: {:?}", res);
-        let dr = res["data"]["driver"].as_str().unwrap().to_string();
-        let http = res["data"]["http"].as_str().unwrap().to_string();
-        let tp = gather_type.clone();
-        let token = token.clone();
-        let app = app.clone();
-        let browser_id = browser_id.clone();
-        let task_name = task_name.clone();
-        let json_ = json.clone();
-        let mut has_closed_all = false;
-        tokio::spawn(async move {
-            let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str())
-                .await
-                .unwrap();
-            let r = bit::parse_user_info(&driver).await;
-            if r.is_err() {
-                let e = r.unwrap_err().to_string();
-                println!("解析人物出错 {:?}", e);
-                app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name": task_name, "task_msg": "需要登陆", "seq":seq })).unwrap();
-                let _ = driver.quit().await;
-                let r = bit::browser_close(browser_id.as_str()).await;
-                app.emit("log", format!("关闭浏览器结果 {:?}", r)).unwrap();
-                return ();
-            }
-            let _ = app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq})); //失败程序不会panic
-            let rr = r.unwrap();
-            let dy_name = rr.0;
-            let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
-            let dy_account = dy_account[1].to_string();
-            println!("dy name {:?} dy account {:?}", dy_name, dy_account);
-
-            app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"更新抖音名称", "dy_name":dy_name, "dy_account":dy_account, "seq":seq})).unwrap();
-
-            loop {
-                let state_clone = GLOBAL_APP_STATE.get().unwrap().clone();
-                let running = {
-                    let s = state_clone.lock().unwrap();
-                    s.is_automation_running
-                };
-                if running == false {
-                    println!("停止自动化任务执行");
-                    let _ = driver.quit().await;
-                    let r = bit::browser_close(browser_id.as_str()).await; //好像没有关闭单个的接口
-                    app.emit("log", format!("关闭浏览器的结果{:?}", r)).unwrap();
-                    break;
-                }
-
-                let dy_name = dy_name.clone();
-                let dy_account = dy_account.clone();
-                println!("token is: {:?}", token);
-                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-                if !has_closed_all {
-                    let m = bit::close_other_tab(&driver).await;
-                    if m.is_err() {
-                        let e = m.unwrap_err();
-                        println!("err is: {:?}", e);
-                    }
-                    has_closed_all = true;
-                }
-
-                let room_json = gather::async_fetch_room(&token, &tp, &json_).await;
-                if room_json.is_err() {
-                    println!(
-                        "获取服务器房间数据失败 {:?}等5秒再试",
-                        room_json.err().unwrap()
-                    );
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
-                }
-                let room_json = room_json.unwrap();
-                println!("room_josn{:?}", room_json);
-                let data = room_json["data"].as_array().unwrap();
-                if data.is_empty() {
-                    println!("data is empty here: {:?} 等待5秒", data);
-                    let _ = app.emit("db", json!({"action":"update","dy_name":dy_name, "task_name":task_name, "dy_account":dy_account, "task_msg":"查找直播音等待5秒", "seq":seq}));
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
-                }
-
-                println!("data is {:?}", data);
-                let send_time = data[0].get("send_time").unwrap().as_u64().unwrap();
-                let delay = data[0].get("delay").unwrap().as_u64().unwrap();
-                let leave_time = bit::caclulate_leave_time(send_time, delay);
-                let room_url = data[0]
-                    .get("room_url")
-                    .unwrap()
-                    .as_str()
-                    .unwrap()
-                    .to_string();
-                let options = json!({
-                    "delay": delay,
-                    "send_time": send_time,
-                    "dy_name": dy_name,
-                    "dy_account": dy_account,
-                    "join_fans_group": join_fans_group,
-                });
-                if tp == "hb" {
-                    let app = app.clone();
-                    let x = bit::hb_logic(&app, &driver, room_url.as_str(), seq.as_str(), &options)
-                        .await;
-                    println!("红包执行结果： {:?}", x);
-                    if x.is_err() {
-                        println!(
-                            "error of this is: {:?}",
-                            x.err().take().unwrap().to_string()
-                        );
-                    }
-                } else if tp == "fd" {
-                    let logic =
-                        bit::fd_logic(&app, &driver, &room_url, seq.as_str(), &options).await;
-                    if logic.is_err() {
-                        println!("fd logic is error {:?}", logic.err().unwrap());
-                    } else {
-                        println!("福袋执行成功 {:?}", logic.ok().unwrap());
-                    }
-                }
-                println!("waiting for leaving live room {:?}", leave_time);
-                ()
-            }
-        });
-    }
-    Ok(())
-}
-
-#[tauri::command]
-async fn start_automation(app: AppHandle, params: String) -> Result<(), String> {
-    let json = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
-    println!("start automation params json is: {:?}", json);
-    let group_ids = json["group_id"].as_array().unwrap();
-    let join_fans_group = json["join_fans_group"].as_bool().unwrap_or(false);
-    let gather_type = json["tp"].as_str().unwrap().to_string();
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
         let mut state_ = state.lock().unwrap();
         state_.is_automation_running = true;
     }
-    println!("json of this json is: {:?} {:?}", json, gather_type);
+
+    let windows = bit::browser_group_windows(group_id).await.unwrap();
+    return automation_run(app, windows, json).await;
+}
+
+#[tauri::command]
+async fn re_start_automation(app: AppHandle, params: String) -> Result<(), String> {
+    //重新启动自动化任务逻辑跟之前的逻辑是一样子的
+    let json = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
+    let group_ids = json["group_id"].as_array().unwrap();
     let mut group_id = String::from("");
     if group_ids.len() > 0 {
         group_id = group_ids[0].as_str().unwrap().to_string();
     }
+    let windows: Vec<serde_json::Value> = bit::browser_group_windows(group_id).await.unwrap();
+    return automation_run(app, windows, json).await;
+}
+
+async fn automation_run(
+    app: AppHandle,
+    windows: Vec<serde_json::Value>,
+    json: serde_json::Value,
+) -> Result<(), String> {
+    let join_fans_group = json["join_fans_group"].as_bool().unwrap_or(false);
+    let min_time = json["min_time"].as_u64().unwrap();
+    let max_time = json["max_time"].as_u64().unwrap();
+    let use_time_strict = json["use_time_strict"].as_bool().unwrap_or(false);
+    let gather_type = json["tp"].as_str().unwrap().to_string();
     let store = app.app_handle().store("app.json").unwrap();
     let token = store
         .get("token")
@@ -445,10 +289,8 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         .to_owned()
         .unwrap()
         .to_string();
-    println!("token is: {:?}", token);
-
-    let windows = bit::browser_group_windows(group_id).await.unwrap();
-    let _ = app.emit("db", json!({ACT_NAME:"init_seq", "windows": windows})); //初始化数据表
+    app.emit("db", json!({ACT_NAME:"init_seq", "windows": windows}))
+        .unwrap();
     let action_map = HashMap::from([("fd", "福袋任务"), ("hb", "红包任务")]);
     let task_name = action_map[gather_type.as_str()].to_string();
     for win in windows {
@@ -473,8 +315,16 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
         let browser_id = browser_id.clone();
         let task_name = task_name.clone();
         let json_ = json.clone();
+        {
+            let state = GLOBAL_APP_STATE.get().unwrap().clone();
+            let mut state_ = state.lock().unwrap();
+            let bid_ = browser_id.clone();
+            let seq_ = seq.clone();
+            state_.bit_window_list.insert(bid_, seq_);
+        }
+
         tokio::spawn(async move {
-            let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str())
+            let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str(), seq.as_str())
                 .await
                 .unwrap();
 
@@ -491,10 +341,8 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 driver.quit().await.unwrap();
                 return ();
             }
-
             app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"等待80信息解析出来", "seq":seq})).unwrap();
             tokio::time::sleep(Duration::from_secs(70)).await; //等2分钟再开dd
-
             let rr = r.unwrap();
             let dy_name = rr.0;
             let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
@@ -546,9 +394,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                 let room_json = room_json.unwrap();
                 let data = room_json["data"].as_array().unwrap();
                 if data.is_empty() {
-                    let s = format!("data is empty here: {:?} 等待3秒", data);
-                    println!("{:?}", s);
-                    app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待5秒再试", "seq":seq})).unwrap();
+                    app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待3秒再试", "seq":seq})).unwrap();
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
@@ -562,7 +408,8 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
 
                 let send_time = data[0].get("send_time").unwrap().as_u64().unwrap();
                 let delay = data[0].get("delay").unwrap().as_u64().unwrap();
-                let leave_time = bit::caclulate_leave_time(send_time, delay);
+                //let leave_time = bit::caclulate_leave_time(send_time, delay);  //不知道live time
+                //要干嘛
                 let room_url = data[0]
                     .get("room_url")
                     .unwrap()
@@ -575,6 +422,9 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                     "dy_name": dy_name,
                     "dy_account": dy_account,
                     "join_fans_group": join_fans_group,
+                    "max_time": max_time,
+                    "min_time": min_time,
+                    "use_time_strict": use_time_strict,
                 });
                 if tp == "hb" {
                     //let app = app.clone();
@@ -582,7 +432,14 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                         .await;
                     if x.is_err() {
                         let err = x.err().unwrap();
-                        app.emit("db", json!({"action":ACT_UPDATE,"task_msg":format!("hb logic {:?}", err), "seq":seq}))
+                        let s = match err {
+                            MyError::StringError(es) => es,
+                            MyError::TauriError => "Tauri Error".to_string(),
+                            MyError::WebDriverError(e) => format!("{:?}", e).to_string(),
+                            MyError::RequestError(e) => format!("{:?}", e).to_string(),
+                            MyError::SerdeError(e) => format!("{:?}", e).to_string(),
+                        };
+                        app.emit("db", json!({"action":ACT_UPDATE,"task_msg":format!("E: {:?}", s), "seq":seq}))
                             .unwrap();
                     }
                 } else if tp == "fd" {
@@ -590,9 +447,16 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                         bit::fd_logic(&app, &driver, &room_url, seq.as_str(), &options).await;
                     if logic.is_err() {
                         let err_str = logic.err().unwrap();
+                        let s = match err_str {
+                            MyError::StringError(es) => es,
+                            MyError::TauriError => "Tauri Error".to_string(),
+                            MyError::WebDriverError(e) => format!("{:?}", e).to_string(),
+                            MyError::RequestError(e) => format!("{:?}", e).to_string(),
+                            MyError::SerdeError(e) => format!("{:?}", e).to_string(),
+                        };
                         app.emit(
                             "db",
-                            json!({"action":ACT_UPDATE, "seq":seq, "task_msg":format!("fd logic error {:?}", err_str)}),
+                            json!({"action":ACT_UPDATE, "seq":seq, "task_msg":format!("F: {:?}", s)}),
                         )
                         .unwrap();
                     } else {
@@ -601,7 +465,6 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
                             .unwrap();
                     }
                 }
-                println!("waiting for leaving live room {:?}", leave_time);
                 ()
             }
         });
@@ -615,6 +478,11 @@ async fn stop_automation() -> Result<(), tauri::Error> {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
         let mut state_ = state.lock().unwrap();
         state_.is_automation_running = false;
+        for (k, v) in state_.chrome_driver_child.iter_mut() {
+            println!("kill key : {:?}", k);
+            v.kill().unwrap();
+        }
+        state_.bit_window_list.clear();
     }
     let _ = tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     let _ = bit::browser_closeall().await;
@@ -640,7 +508,7 @@ fn spider_with_multiple_threads(
     gather_type: &str,
 ) -> Result<(), String> {
     let threads = options["thread_number"].as_i64().unwrap();
-    app.emit("notify", "start spider success!").unwrap(); //直接发射，不需要获得结果
+    let people_limit = options["people_limit"].as_u64().unwrap();
     let store = app.app_handle().store(APP_STORE_NAME).unwrap();
     let token = store.get("token").unwrap().as_str().unwrap().to_string();
     let cookies_stack: Vec<String> = match store.get("cookies") {
@@ -694,7 +562,7 @@ fn spider_with_multiple_threads(
                 let rooms = rooms.unwrap();
                 let data = rooms["data"].as_array();
                 if data.is_none() {
-                    let _ = app_.emit("log", "no data for room").unwrap();
+                    app_.emit("log", "no data for room").unwrap();
                     std::thread::sleep(Duration::from_secs(3));
                     continue;
                 }
@@ -707,6 +575,22 @@ fn spider_with_multiple_threads(
                     let title = room["data"]["title"].as_str().unwrap();
                     let owner_nickname = room["data"]["owner"]["nickname"].as_str().unwrap();
                     let user_count = room["data"]["user_count"].as_i64().unwrap();
+                    //观看人数
+                    let display_value = room["data"]["room_view_stats"]["display_value"]
+                        .as_u64()
+                        .unwrap();
+
+                    if people_limit < display_value {
+                        {
+                            let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                            let mut state_ = state.lock().unwrap();
+                            state_.limit_room += 1;
+                            state_.total += 1;
+                            app_.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+                        }
+                        continue;
+                    }
+
                     let index = i % length;
                     let cookie__ = _m_cookie_stack.get(index).unwrap().to_string();
                     let mut rng = rand::rng();
@@ -714,12 +598,15 @@ fn spider_with_multiple_threads(
                     let json_data = json!({
                         "room_id": room_id.to_string(),
                         "web_rid":web_rid.to_string(),
-                        "title":title.to_string(),"type":_tp, "cookie":cookie__, "token": _token, "sleep":rand_number,
+                        "title":title.to_string(),
+                        "type":_tp, "cookie":cookie__, "token": _token, "sleep":rand_number,
+                        "display_value": display_value,
                         "options":_options,
                     });
+
                     threads::execute_gather(json_data, &app_);
                     i = i + 1;
-                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    std::thread::sleep(std::time::Duration::from_millis(300));
                     room_count = room_count + 1;
 
                     {

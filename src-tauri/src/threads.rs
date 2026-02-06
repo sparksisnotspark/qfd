@@ -34,10 +34,21 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
     let only_big_packet = options["only_big_packet"].as_bool().unwrap();
     let min_avg_diamond = options["min_avg_diamond"].as_u64().or(Some(1)).unwrap(); //红包
     let fd_min_avg_diamond = options["fd_min_avg_diamond"].as_u64().or(Some(10)).unwrap();
-    let min_time = options["min_time"].as_u64().unwrap(); //时间开始，表示最小等多久
-    let max_time = options["max_time"].as_u64().unwrap(); //时间区间，表示最多等多久
+    // let min_time = options["min_time"].as_u64().unwrap(); //时间开始，表示最小等多久
+    // let max_time = options["max_time"].as_u64().unwrap(); //时间区间，表示最多等多久
+    let display_value = payload["display_value"].as_u64().unwrap();
+    if people_limit < display_value {
+        {
+            let state = GLOBAL_APP_STATE.get().unwrap().clone();
+            let mut state_ = state.lock().unwrap();
+            state_.limit_room += 1;
+            state_.total += 1;
+            app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+            return;
+        }
+    }
 
-    println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?}  only big packet {:?} min avg diamond {:?} min time {:?} max_time {:?} ", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond, min_time, max_time);
+    //println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?}  only big packet {:?} min avg diamond {:?} min time {:?} max_time {:?} ", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond, min_time, max_time);
 
     if gather_type == "hb" {
         let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond);
@@ -94,15 +105,19 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 "prize count {:?} lucky count {:?}, {:?} {:?}",
                 prize_count, lucky_count, delay, candidate_num
             );
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"fd", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
+            let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay});
             let x = gather::sync_add_one_room(token, value);
             {
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
                 state_.fd_count += 1;
             }
-            println!("xx is: {:?}", x);
-            app.emit("log", "查询到福袋的信息").unwrap();
+            if x.is_err() {
+                let s = format!("插入房间出错{:?}", x.err().unwrap());
+                app.emit("log", s).unwrap();
+            } else {
+                app.emit("log", "插入房间成功!").unwrap();
+            }
         } else {
             app.emit("log", format!("福袋解析出错 {:?}", x.err().unwrap()))
                 .unwrap();

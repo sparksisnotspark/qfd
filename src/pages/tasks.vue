@@ -16,6 +16,7 @@
                         <el-button type="primary" :icon="Search" @click="searchHandler">查询</el-button>
                         <el-button type="info" @click="onSubmit">重置</el-button>
                         <el-button type="danger" @click="onSubmit">清空所有数据</el-button>
+                        <el-checkbox v-model="auto_refresh" style="margin-left: 20px" @change="autoRefreshChange">自动刷新</el-checkbox>
                     </el-form-item>
                 </el-form>
                 <el-table :data="userHistory" size="small" style="width: 100%" max-height="800" min-height="700" border show-summary
@@ -150,6 +151,9 @@
                                             v-model="spiderOptions.max_time" placeholder="最大时间"
                                             type="number"></el-input-number>
                                     </el-form-item>
+                                    <el-form-item label="严格">
+                                        <el-switch v-model="spiderOptions.use_time_strict"></el-switch>
+                                    </el-form-item>
 
                                     <el-form-item label="红包人均">
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
@@ -238,7 +242,6 @@
                 <el-form-item prop="cookie">
                     <el-input v-model="cookiesForm.cookie" placeholder="输入广场cookie" clearable></el-input>
                 </el-form-item>
-
                 <el-form-item>
                     <el-button type="primary" @click="saveCookieHandle" :loading="saveCookieLoading">保存</el-button>
                 </el-form-item>
@@ -415,8 +418,9 @@ const start_btn_disabled = ref(false);
 const cjLoading = ref(false);
 const showCookieManagerDialog = ref(false); //显示管理 dialog
 const app_version = ref("");
+const auto_refresh = ref(false);
 
-const searchOptions = reactive({
+let searchOptions = reactive({
     dy_name: "",
     dy_account: "",
     create_at: "",
@@ -441,6 +445,7 @@ let spiderOptions = reactive({
     people_limit: 1000, //人数限制
     min_time: 25, //最小时间(秒)
     max_time: 400, //最大时间(秒)
+    use_time_strict: false,
     join_fans_group: false, //参与粉丝团
     live_square_ck: "", //直播广场CK
     only_big_packet: false, //只采集大包
@@ -498,6 +503,9 @@ const re_start_automation = async () => {
                         enable_second_check: browserOptions.enable_second_check,
                         loop_run: browserOptions.loop_run,
                         tp: browserOptions.tp,
+                        max_time: spiderOptions.max_time,
+                        min_time: spiderOptions.min_time,
+                        use_time_strict: spiderOptions.use_time_strict,
                         join_fans_group: spiderOptions.join_fans_group,
                         can_used_times: browserOptions.can_used_times,
                     }),
@@ -538,12 +546,17 @@ const startAutomation = async () => {
                         second_prize_rate: browserOptions.second_prize_rate,
                         enable_second_check: browserOptions.enable_second_check,
                         loop_run: browserOptions.loop_run,
+                        spider_options: spiderOptions,
                         tp: browserOptions.tp,
+                        max_time: spiderOptions.max_time,
+                        min_time: spiderOptions.min_time,
+                        use_time_strict: spiderOptions.use_time_strict,
                         join_fans_group: spiderOptions.join_fans_group,
                         can_used_times: browserOptions.can_used_times,
                     }),
                 });
                 ElMessage.success("自动化运行已启动");
+                console.log("start automation result is: ", res);
             } catch (error) {
                 console.error("Error invoking browser_group_windows:", error);
                 //start_btn_disabled.value = false;
@@ -798,13 +811,22 @@ let dbListener = null;
 let spiderListener = null;
 let logListener = null;
 
+const autoRefreshChange = async ( val ) => {
+    if (val) {
+        intervalId = setInterval(async () => {
+            await searchHandler();
+        }, 2000);
+    } else {
+        if (intervalId) {
+            clearInterval(intervalId);
+        }
+    }
+}
+
 onMounted(async () => {
     await init_db(); //初始化数据
     await fetchGroups();
     await get_ip();
-    intervalId = setInterval(async () => {
-        await searchHandler();
-    }, 2000);
 
     app_version.value = await getAppVersion();
 
