@@ -88,7 +88,7 @@ pub async fn fetch_dy_room(cookie_str: &str) -> Result<serde_json::Value, MyErro
 }
 
 pub fn sync_fetch_dy_room(cookie: String) -> Result<serde_json::Value, MyError> {
-    let url = "https://live-hj.douyin.com/webcast/feed/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=page_refresh&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=Win32&browser_name=Chrome&browser_version=139.0.0.0&channel=channel_pc_web&request_tag_from=web&need_map=1&liveid=1&is_draw=1&inner_from_drawer=0&custom_count=8&action=load_more&action_type=loadmore&enter_source=web_homepage_hot_web_live_card&source_key=web_homepage_hot_web_live_card&msToken=EFV4C2zDfEjt_EEQ5n24H9U_xA4mG6q4EeWWe5ng_l9wPM8XmJo9aK2_W8UunFbIT_EMk8nLCmagvH1sqcI3dUksx0Tv5rJXM053FPcjCqdXmBsl8J2ASPMMy3SpJs7pkIiiDWp04vqFHHGbN3yOh06RNz1jYWkJ7CGJiJzc3CvHs3kaf1mWSPE%3D&a_bogus=xfs5h7UjmomnFVKb8CftCVaUcSoMrsSy3lT2SaluSxPIc7UcxuP0Qxa0roFi%2FQMdwup0ioV7AnU%2FYExcz9XT1MHpomhvSqwfqTQ9VSXoMHJ6Tak29ZW8ebbxKJsGWSsYO5Avi5wXI0FwI2O3hrn%2FAVVaH5zOQORDSNFbd28ca9ANVSfHnoQHeQvWaXy%3D";
+    let url = "https://live-hj.douyin.com/webcast/feed/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=page_refresh&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=Win32&browser_name=Chrome&browser_version=142.0.0.0&channel=channel_pc_web&request_tag_from=web&need_map=1&liveid=1&is_draw=1&inner_from_drawer=0&custom_count=8&action=load_more&action_type=loadmore&enter_source=web_homepage_hot_web_live_card&source_key=web_homepage_hot_web_live_card&msToken=EFV4C2zDfEjt_EEQ5n24H9U_xA4mG6q4EeWWe5ng_l9wPM8XmJo9aK2_W8UunFbIT_EMk8nLCmagvH1sqcI3dUksx0Tv5rJXM053FPcjCqdXmBsl8J2ASPMMy3SpJs7pkIiiDWp04vqFHHGbN3yOh06RNz1jYWkJ7CGJiJzc3CvHs3kaf1mWSPE%3D&a_bogus=xfs5h7UjmomnFVKb8CftCVaUcSoMrsSy3lT2SaluSxPIc7UcxuP0Qxa0roFi%2FQMdwup0ioV7AnU%2FYExcz9XT1MHpomhvSqwfqTQ9VSXoMHJ6Tak29ZW8ebbxKJsGWSsYO5Avi5wXI0FwI2O3hrn%2FAVVaH5zOQORDSNFbd28ca9ANVSfHnoQHeQvWaXy%3D";
     let client = reqwest::blocking::Client::new();
     let resp = client
         .get(url)
@@ -139,6 +139,7 @@ pub fn parse_luckbox_info(
         .get(url)
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
         .header(
             reqwest::header::REFERER,
             format!("https://live.douyin.com/{}", web_rid),
@@ -237,6 +238,7 @@ pub fn parse_lottery_info(
             reqwest::header::REFERER,
             format!("https://live.douyin.com/{}", web_rid),
         )
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::USER_AGENT, agent)
         .header(reqwest::header::COOKIE, cookie)
@@ -349,6 +351,7 @@ pub async fn add_one_room(token: &str, params: serde_json::Value) -> Result<(), 
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("app-key", token)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
         .json(&params)
         .send()
         .await;
@@ -366,6 +369,7 @@ pub fn sync_add_one_room(token: &str, params: serde_json::Value) -> Result<(), M
         .post(url)
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header("app-key", token)
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .json(&params)
         .send()?;
