@@ -2,7 +2,7 @@ import axios from "axios";
 import dayjs from "dayjs";
 import { db, getDb } from "./db";
 import { history } from "./db/schema";
-import { eq, sql, and, param } from "drizzle-orm";
+import { eq, sql, and, param, inArray } from "drizzle-orm";
 import { getVersion } from '@tauri-apps/api/app';
 
 const API_URL = "http://193.134.211.160:8787";
@@ -59,6 +59,15 @@ export const clean_task_name = async (date) => {
         console.log(x, "clean task name info", create_at);
     } catch (e) {
         console.log(e, "clean exception");  
+    }
+}
+
+export const delete_data = async(ids) => {
+    try {
+        let r = await db.delete(history).where(inArray(history.id, ids));
+        console.log(r, "delete data result");
+    } catch (e) {
+        console.log("exception",e)
     }
 }
 

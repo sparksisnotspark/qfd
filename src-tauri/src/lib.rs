@@ -33,9 +33,6 @@ pub struct AppState {
     pub bit_window_list: HashMap<String, String>,
 }
 
-//static mut SPIDER_STOP: bool = false;
-//static mut AUTOMATION_STOP: bool = false;
-
 static GLOBAL_APP_STATE: OnceLock<Arc<Mutex<AppState>>> = OnceLock::new();
 const APP_STORE_NAME: &str = "app.json";
 const ACT_UPDATE: &str = "update";
@@ -87,133 +84,6 @@ async fn mac_address() -> String {
 }
 
 #[tauri::command]
-fn sync_start_spider(
-    app: AppHandle,
-    options: serde_json::Value,
-    gather_type: &str,
-) -> Result<String, String> {
-    let threads = options["thread_number"].as_i64().unwrap();
-    println!("what is this params is: {:?}", threads);
-    let _ = app.emit("notify", "start spider success!"); //直接发射，不需要获得结果
-    let store = app.app_handle().store(APP_STORE_NAME).unwrap();
-    let token = store.get("token").unwrap().as_str().unwrap().to_string();
-    let cookies_stack: Vec<String> = match store.get("cookies") {
-        Some(x) => x
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|x| x["ck"].to_string())
-            .collect(),
-        None => return Err("error cookie is empty~!".to_string()),
-    };
-    let gather_type = gather_type.to_string();
-    println!("gather type is: {:?}", gather_type);
-    let length = cookies_stack.len();
-    {
-        let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let mut state_ = state.lock().unwrap();
-        state_.is_spider_running = true;
-    }
-
-    println!("start spider threads number is go here?");
-    thread::spawn(move || {
-        let pool = threads::ThreadPool::new(threads as usize);
-        let gather_type_ = gather_type.clone();
-        let token_ = token.clone();
-        let m_cookies_stack = cookies_stack.clone();
-        let cookie_ = m_cookies_stack[0].as_str();
-        loop {
-            {
-                let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                let state_ = state.lock().unwrap();
-                if state_.is_spider_running == false {
-                    println!("停止线程执行");
-                    break;
-                }
-            }
-            app.emit("log", "Go... spider").unwrap();
-
-            let rooms: Result<serde_json::Value, bit::MyError> =
-                gather::sync_fetch_dy_room(cookie_.to_string());
-            if rooms.is_err() {
-                let err = rooms.err().unwrap();
-                println!("获取服务器房间数据失败 {:?}", err);
-                app.emit("log", format!("获取房间数据失败{:?}", err))
-                    .unwrap();
-                std::thread::sleep(std::time::Duration::from_secs(3));
-                continue;
-            }
-            let rooms = rooms.unwrap();
-            let data = rooms["data"].as_array();
-            if data.is_none() {
-                println!("没有获取到数据");
-                app.emit("log", "no data for room").unwrap();
-                std::thread::sleep(std::time::Duration::from_secs(3));
-                continue;
-            }
-            let mut i = 0;
-            let mut room_count = 0;
-            for room in data.unwrap() {
-                let web_rid = room["web_rid"].as_str().unwrap();
-                let room_id = room["data"]["id_str"].as_str().unwrap();
-                let title = room["data"]["title"].as_str().unwrap();
-                let owner_nickname = room["data"]["owner"]["nickname"].as_str().unwrap();
-                let user_count = room["data"]["user_count"].as_i64().unwrap();
-                let index = i % length;
-                let cookie__ = m_cookies_stack.get(index).unwrap().to_string();
-                let mut rng = rand::rng();
-                let rand_number = rng.random_range(900..=2000);
-                let json_data = json!({
-                    "room_id": room_id.to_string(),
-                    "web_rid":web_rid.to_string(),
-                    "title":title.to_string(),"type":gather_type_, "cookie":cookie__, "token": token_, "sleep":rand_number,
-                    "options":options
-                });
-                pool.execute(threads::Job::new(json_data, app.clone()));
-                let payload = format!(
-                    "web rid: {:?} room id: {:?} title: {:?} owner_nick {:?} user count {:?}",
-                    web_rid, room_id, title, owner_nickname, user_count
-                );
-                app.emit("log", payload).unwrap();
-                i = i + 1;
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                room_count += 1;
-            }
-            {
-                let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                let mut state_ = state.lock().unwrap();
-                state_.total += room_count;
-                if state_.is_spider_running == false {
-                    println!("停止线程执行");
-                    break;
-                }
-                println!("------start main emit-----");
-                app.emit(
-                    "log",
-                    format!("本轮采集完成，线程结束,采集房间数：{}", room_count),
-                )
-                .unwrap();
-                app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count,"fd_count":state_.fd_count }))
-                    .unwrap();
-            }
-            std::thread::sleep(std::time::Duration::from_millis(800));
-        }
-    });
-    Ok("Success".to_string())
-}
-
-#[tauri::command]
-async fn sync_stop_spider(app: AppHandle) -> Result<String, String> {
-    let _ = app.emit("notify", "采集程序停止成功");
-    {
-        let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let mut state_ = state.lock().unwrap();
-        state_.is_spider_running = false;
-    }
-    Ok("stop success!".to_string())
-}
-
-#[tauri::command]
 async fn bit_group_browsers(id: &str) -> Result<Vec<serde_json::Value>, tauri::Error> {
     let res = bit::browser_group_windows(id.into()).await.unwrap();
     Ok(res)
@@ -237,6 +107,34 @@ async fn test_login_required(params: String) -> Result<bool, String> {
     let windows = bit::browser_group_windows(group_id).await.unwrap();
     println!("windows is: {:?}", windows);
     Ok(true)
+}
+
+#[tauri::command]
+async fn restart_select_automation(app: AppHandle, options:serde_json::Value) -> Result<(), String> {
+    let seqs = options["seqs"].as_array().unwrap();
+    let mut wait_for:Vec<serde_json::Value> = vec![];
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let mut state_ = state.lock().unwrap();
+        for seq in seqs {
+            for (k, e) in state_.bit_window_list.iter() {
+                let seq_ = seq["seq"].as_str().unwrap().to_string();
+                let e_ = e.to_owned();
+                if e_ == seq_ {
+                    wait_for.push(json!({"seq":seq_, "id":k}));
+                }
+            }
+        }
+
+        for seq in seqs {
+            let seq = seq["seq"].as_str().unwrap().to_string();
+            if let Some(child) = state_.chrome_driver_child.get_mut(&seq) {
+                child.kill().unwrap();
+                child.wait().unwrap();
+            }
+        }
+    }
+    return automation_run(app, wait_for, options).await;
 }
 
 #[tauri::command]
@@ -268,7 +166,38 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
         group_id = group_ids[0].as_str().unwrap().to_string();
     }
     let windows: Vec<serde_json::Value> = bit::browser_group_windows(group_id).await.unwrap();
-    return automation_run(app, windows, json).await;
+        let ids: Vec<String> = windows
+        .iter()
+        .map(|x| x["id"].as_str().unwrap().to_string())
+        .collect();
+    println!("ids: xxxxx{:?}", ids);
+    let ids_clone = ids.clone();
+    let fetch_obj = bit::bitbroswer_pids_alive(ids).await.unwrap();
+    let mut alived_windows: Vec<String> = vec![];
+    let mut wait_for_open: Vec<String> = vec![];
+    let s = fetch_obj["data"].as_object().unwrap();
+    //获取整个数据
+    for (k, _) in s.into_iter() {
+        alived_windows.push(k.to_string());
+    }
+
+    for k in ids_clone.into_iter() {
+        if !alived_windows.contains(&k) {
+            wait_for_open.push(k);
+        }
+    }
+
+    let mut wait_for:Vec<serde_json::Value> = vec![];
+
+    for bid in wait_for_open {
+        let res = bit::browser_detail(bid).await.unwrap();
+        println!("browser detail res is: {:?}", res);
+        let win = res["data"].as_object().unwrap();
+        let seq = win["seq"].as_u64().unwrap().to_string();
+        let browser_id = win["id"].as_str().unwrap().to_string();
+        wait_for.push(json!({"seq":seq, "id":browser_id}));
+    }
+    return automation_run(app, wait_for, json).await;
 }
 
 async fn automation_run(
@@ -472,6 +401,7 @@ async fn automation_run(
     Ok(())
 }
 
+
 #[tauri::command]
 async fn stop_automation() -> Result<(), tauri::Error> {
     {
@@ -481,6 +411,7 @@ async fn stop_automation() -> Result<(), tauri::Error> {
         for (k, v) in state_.chrome_driver_child.iter_mut() {
             println!("kill key : {:?}", k);
             v.kill().unwrap();
+            v.wait().unwrap();
         }
         state_.bit_window_list.clear();
     }
@@ -632,41 +563,6 @@ fn spider_with_multiple_threads(
     Ok(())
 }
 
-/*
-#[tauri::command]
-async fn check_token_expired(app:AppHandle, _token: &str) -> Result<(), String> {
-    //模拟检查token是否过期
-    let store = app.app_handle().store("app.json").unwrap();
-    let token = store
-        .get("token")
-        .unwrap()
-        .as_str()
-        .to_owned()
-        .unwrap()
-        .to_string();
-    println!("token is: {:?}", token);
-    let result = gather::check_token_expired(&token).await;
-    match result {
-        Ok(_) => Ok(()),
-        Err(e) => Err(format!("token expired check error {:?}", e)),
-    }
-}
-    */
-
-#[tauri::command]
-async fn stop_test() -> Result<(), tauri::Error> {
-    let mut s: Vec<(i32, String)> = vec![
-        (231, "sparks".to_string()),
-        (321, "json".to_string()),
-        (32, "safsd".to_string()),
-        (111, "do somethings".to_string()),
-    ];
-    s.sort_by(|a, b| a.0.cmp(&b.0));
-    let x = s.pop().unwrap();
-    println!("sparks is s: {:?} {:?}", s, x);
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -682,11 +578,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
-            stop_test,
             flexable_windows,
-            sync_start_spider,
-            sync_stop_spider,
             fetch_bitbrowser_group,
+            restart_select_automation,
             spider_with_multiple_threads_stop,
             spider_with_multiple_threads,
             get_ip,

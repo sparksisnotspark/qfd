@@ -13,7 +13,6 @@ use tokio::time::Duration;
 use crate::GLOBAL_APP_STATE;
 pub const API_URL: &str = "http://127.0.0.1:54345";
 pub const QFD_SERVER_URL: &str = "http://193.134.211.160:8787";
-//static mut CHILD_PROCESS: Vec<std::process::Child> = vec![];
 
 pub fn monitor() -> Vec<String> {
     Vec::with_capacity(3)
@@ -175,7 +174,7 @@ pub async fn window_bounds(options: serde_json::Value) -> Result<(), MyError> {
     let client = Client::new();
     let x_offset = options["x_offset"].as_i64().unwrap();
     let y_offset = options["y_offset"].as_i64().unwrap();
-    let json = json!({  "type": "diagonal", "startX": 0, "startY": 0, "width": 1024, "height": 800, "col": 3, "spaceX": 50, "spaceY": 50, "offsetX": x_offset, "offsetY": y_offset,});
+    let json = json!({  "type": "diagonal", "startX": 0, "startY": 0, "width": 1200, "height": 800, "col": 3, "spaceX": 50, "spaceY": 50, "offsetX": x_offset, "offsetY": y_offset,});
     let r = client
         .post(format!("{}{}", API_URL, "/windowbounds"))
         .json(&json)
@@ -488,7 +487,8 @@ pub async fn hb_logic(
                 }
             }
 
-            sleep(Duration::from_millis(300)).await;
+            tokio::time::sleep(Duration::from_millis(300)).await;
+
             //hb_canyu_count += 1;
         }
     }
@@ -504,11 +504,8 @@ pub async fn hb_logic(
                 break;
             }
         }
-        let mut rand_number = 0;
-        {
-            let mut rng = rand::rng();
-            rand_number = rng.random_range(3..10);
-        }
+        let mut rng = rand::rng();
+        let rand_number = rng.random_range(3..10);
         if waiting_list.len() > 0 {
             wait_time_ = waiting_list[idx];
         }
@@ -520,7 +517,7 @@ pub async fn hb_logic(
         return Ok(());
     }
 
-    app.emit("db", json!({"action":"update","task_msg":"执行完成抢红包，等待开奖结果", "dy_name":dy_name, "dy_account":dy_account, "seq":seq  })).unwrap();
+    app.emit("db", json!({"action":"update","task_msg":format!("等待{:?}秒，开奖结果", leave_time), "dy_name":dy_name, "dy_account":dy_account, "seq":seq  })).unwrap();
     tokio::time::sleep(Duration::from_secs(leave_time)).await;
 
     let i = 0;
@@ -584,7 +581,7 @@ pub async fn hb_logic(
         }
     }
 
-    sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
     //----------------------解析开将结果--------------------------
     let user_diamond = parse_user_diamond(driver).await;
     let mut diamond = 0;

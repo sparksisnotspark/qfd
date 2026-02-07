@@ -15,11 +15,12 @@
                     <el-form-item>
                         <el-button type="primary" :icon="Search" @click="searchHandler">查询</el-button>
                         <el-button type="info" @click="onSubmit">重置</el-button>
-                        <el-button type="danger" @click="onSubmit">清空所有数据</el-button>
+                        <el-button type="danger" @click="delete_select_data">删除</el-button>
+                        <el-button type="success" @click="restart_windows">重启</el-button>
                         <el-checkbox v-model="auto_refresh" style="margin-left: 20px" @change="autoRefreshChange">自动刷新</el-checkbox>
                     </el-form-item>
                 </el-form>
-                <el-table :data="userHistory" size="small" style="width: 100%" max-height="800" min-height="700" border show-summary
+                <el-table :data="userHistory" size="small" style="width: 100%" max-height="800" min-height="700" @selection-change="handle_select_change" border show-summary
                     :summary-method="sumHistory">
                     <el-table-column type="selection" width="50" align="center" label="#" />
                     <el-table-column prop="seq" label="C#" align="center" width="50" show-overflow-tooltip />
@@ -278,7 +279,7 @@ import { useRouter } from "vue-router";
 import { getDb } from "../db";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher, init_sqlite_db, check_record_exists, clean_task_name, getAppVersion } from "../api";
+import { db_action_dispatcher, init_sqlite_db, check_record_exists, clean_task_name, getAppVersion, delete_data } from "../api";
 
 const max_length = 50;
 const logs = ref([]);
@@ -840,7 +841,6 @@ onMounted(async () => {
     disableRefresh();
 
     spiderListener = listen("spider", async (event) => {
-        console.log("update for somethings??");
         allowed_count.value = event.payload.allowed_count;
         fd_count.value = event.payload.fd_count;
         total.value = event.payload.total;
@@ -870,21 +870,56 @@ onMounted(async () => {
 
 });
 
+const multiple_windows_select = ref([]);
+
+const handle_select_change = (val) => {
+    multiple_windows_select.value = val;
+}
+
+const restart_windows = async () => {
+    multiple_windows_select.value.forEach((x) => {
+        console.log(x, x.id, x.seq, x.create_at);
+    });
+}
+
+const delete_select_data = async () => {
+    if(multiple_windows_select.value.length <= 0) {
+        ElMessage.warning("请先选择要删除的数据");
+        return;
+    }
+    ElMessageBox.confirm("确定删除选定的数据？").then(async ()=> {
+        let ids = [];
+        multiple_windows_select.value.forEach((x) => {
+            console.log("delete select data is:", x, x.id, x.seq);
+            ids.push(x.id);
+        });
+        await delete_data(ids);
+        await searchHandler();
+    }, (r) => {
+        ElMessage.warning("canceled");
+    })
+}
+
 onUnmounted(() => {
     if (intervalId) {
         clearInterval(intervalId);
     }
+    if(spiderListener) {
+        spiderListener.then((unlisten) => {
+            unlisten();
+        });
+    }
+    if(logListener) {
+        logListener.then((unlisten) => {
+            unlisten();
+        });
+    }
 
-    spiderListener.then((unlisten) => {
-        unlisten();
-    });
-    logListener.then((unlisten) => {
-        unlisten();
-    });
-
-    dbListener.then((unlisten) => {
-        unlisten();
-    });
+    if(dbListener) {
+        dbListener.then((unlisten) => {
+            unlisten();
+        });
+    }
 });
 
 const flexable_windows = async () => {

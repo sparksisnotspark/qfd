@@ -100,7 +100,6 @@ pub fn sync_fetch_dy_room(cookie: String) -> Result<serde_json::Value, MyError> 
         .header(reqwest::header::COOKIE, cookie)
         .send()?;
     let resp_str = resp.text()?;
-    println!("resp str is: {:?}", resp_str);
     let json = serde_json::from_str::<serde_json::Value>(&resp_str)?;
     Ok(json)
 }

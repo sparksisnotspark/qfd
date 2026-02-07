@@ -1,5 +1,6 @@
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
+use std::time::SystemTime;
 
 use serde_json::json;
 use tauri::{AppHandle, Emitter};
@@ -34,8 +35,9 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
     let only_big_packet = options["only_big_packet"].as_bool().unwrap();
     let min_avg_diamond = options["min_avg_diamond"].as_u64().or(Some(1)).unwrap(); //红包
     let fd_min_avg_diamond = options["fd_min_avg_diamond"].as_u64().or(Some(10)).unwrap();
-    // let min_time = options["min_time"].as_u64().unwrap(); //时间开始，表示最小等多久
-    // let max_time = options["max_time"].as_u64().unwrap(); //时间区间，表示最多等多久
+    let min_time = options["min_time"].as_u64().unwrap(); //时间开始，表示最小等多久
+    let max_time = options["max_time"].as_u64().unwrap(); //时间区间，表示最多等多久
+    let use_time_strict = options["use_time_strict"].as_bool().unwrap_or(false);
     let display_value = payload["display_value"].as_u64().unwrap();
     if people_limit < display_value {
         {
@@ -48,7 +50,10 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
         }
     }
 
-    //println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?}  only big packet {:?} min avg diamond {:?} min time {:?} max_time {:?} ", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond, min_time, max_time);
+    println!(
+        "max time: {:?} use time strict {:?}",
+        max_time, use_time_strict
+    );
 
     if gather_type == "hb" {
         let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond);
@@ -101,10 +106,32 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let web_rid = info["web_rid"].as_str().unwrap();
             let candidate_num = info["candidate_num"].as_u64().unwrap();
 
+            let now = SystemTime::now();
+            let now_ts = now
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            if send_time + delay - now_ts < min_time {
+                app.emit(
+                    "log",
+                    format!(
+                        "福袋即将开始 {:?} 秒, 小于设定的最小时间 {:?} 秒，放弃这个福袋",
+                        send_time + delay - now_ts,
+                        min_time
+                    ),
+                )
+                .unwrap();
+                let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                let mut state_ = state.lock().unwrap();
+                state_.limit_room += 1;
+                return;
+            }
+
             println!(
                 "prize count {:?} lucky count {:?}, {:?} {:?}",
                 prize_count, lucky_count, delay, candidate_num
             );
+
             let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay});
             let x = gather::sync_add_one_room(token, value);
             {
@@ -112,6 +139,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 let mut state_ = state.lock().unwrap();
                 state_.fd_count += 1;
             }
+
             if x.is_err() {
                 let s = format!("插入房间出错{:?}", x.err().unwrap());
                 app.emit("log", s).unwrap();
