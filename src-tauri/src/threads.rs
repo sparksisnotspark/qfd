@@ -41,7 +41,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
     let display_value = payload["display_value"].as_u64().unwrap();
     if people_limit < display_value {
         {
-            let state = GLOBAL_APP_STATE.get().unwrap().clone();
+            let state: Arc<Mutex<crate::AppState>> = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut state_ = state.lock().unwrap();
             state_.limit_room += 1;
             state_.total += 1;

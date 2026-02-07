@@ -308,10 +308,18 @@ pub fn parse_lottery_info(
                 "{:?} {:?} {:?} {:?} {:?}",
                 prize_count, lucky_count, draw_time, start_time, candidate_num
             );
-            let ret_json = json!({"prize_count": prize_count,
-                "lucky_count": lucky_count, "need_diamond": need_diamond, "title":title,
-                "delay": count_down, "send_time":start_time, "draw_time":draw_time,"candidate_num": candidate_num,
-                "room_url": room_url, "room_id": room_id, "web_rid": web_rid});
+            let ret_json = json!({
+                "prize_count": prize_count,
+                "lucky_count": lucky_count, 
+                "need_diamond": need_diamond, 
+                "title":title,
+                "delay": count_down, 
+                "send_time":start_time, 
+                "draw_time":draw_time,
+                "candidate_num": candidate_num,
+                "room_url": room_url, 
+                "room_id": room_id, 
+                "web_rid": web_rid});
             println!("采集符合条件的数据成功 {:?}", ret_json);
             return Ok(ret_json);
         } else {

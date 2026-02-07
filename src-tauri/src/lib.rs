@@ -110,9 +110,12 @@ async fn test_login_required(params: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn restart_select_automation(app: AppHandle, options:serde_json::Value) -> Result<(), String> {
+async fn restart_select_automation(
+    app: AppHandle,
+    options: serde_json::Value,
+) -> Result<(), String> {
     let seqs = options["seqs"].as_array().unwrap();
-    let mut wait_for:Vec<serde_json::Value> = vec![];
+    let mut wait_for: Vec<serde_json::Value> = vec![];
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
         let mut state_ = state.lock().unwrap();
@@ -166,7 +169,7 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
         group_id = group_ids[0].as_str().unwrap().to_string();
     }
     let windows: Vec<serde_json::Value> = bit::browser_group_windows(group_id).await.unwrap();
-        let ids: Vec<String> = windows
+    let ids: Vec<String> = windows
         .iter()
         .map(|x| x["id"].as_str().unwrap().to_string())
         .collect();
@@ -187,7 +190,7 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
         }
     }
 
-    let mut wait_for:Vec<serde_json::Value> = vec![];
+    let mut wait_for: Vec<serde_json::Value> = vec![];
 
     for bid in wait_for_open {
         let res = bit::browser_detail(bid).await.unwrap();
@@ -401,7 +404,6 @@ async fn automation_run(
     Ok(())
 }
 
-
 #[tauri::command]
 async fn stop_automation() -> Result<(), tauri::Error> {
     {
@@ -468,7 +470,7 @@ fn spider_with_multiple_threads(
         let _options = options.clone();
         thread::spawn(move || {
             let mut rng = rand::rng();
-            let rand_number = rng.random_range(3000..5000);
+            let rand_number = rng.random_range(3000..8000);
             std::thread::sleep(Duration::from_millis(rand_number));
             app_.emit("log", format!("线程{:?}开始采集", th)).unwrap();
             loop {
@@ -481,7 +483,19 @@ fn spider_with_multiple_threads(
                     }
                 }
 
-                let rooms = gather::sync_fetch_dy_room(_m_cookie_stack[0].as_str().to_string());
+                let cookie_idx: usize;
+                {
+                    cookie_idx = rng.random_range(0.._m_cookie_stack.len());
+                }
+
+                let rooms = gather::sync_fetch_dy_room(
+                    _m_cookie_stack
+                        .get(cookie_idx)
+                        .unwrap()
+                        .as_str()
+                        .to_string(),
+                );
+
                 if rooms.is_err() {
                     let err = rooms.err().unwrap();
                     app_.emit("log", format!("some error is: {:?}", err))
@@ -525,12 +539,15 @@ fn spider_with_multiple_threads(
                     let index = i % length;
                     let cookie__ = _m_cookie_stack.get(index).unwrap().to_string();
                     let mut rng = rand::rng();
-                    let rand_number = rng.random_range(1000..=3000);
+                    let rand_number = rng.random_range(800..=2000);
                     let json_data = json!({
                         "room_id": room_id.to_string(),
                         "web_rid":web_rid.to_string(),
                         "title":title.to_string(),
-                        "type":_tp, "cookie":cookie__, "token": _token, "sleep":rand_number,
+                        "type":_tp, 
+                        "cookie":cookie__, 
+                        "token": _token, 
+                        "sleep":rand_number,
                         "display_value": display_value,
                         "options":_options,
                     });
