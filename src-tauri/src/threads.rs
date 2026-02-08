@@ -111,16 +111,25 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            if send_time + delay - now_ts < min_time {
-                app.emit(
-                    "log",
-                    format!(
-                        "福袋即将开始 {:?} 秒, 小于设定的最小时间 {:?} 秒，放弃这个福袋",
-                        send_time + delay - now_ts,
-                        min_time
-                    ),
-                )
-                .unwrap();
+            let wait_for_secs = send_time + delay - now_ts;
+            if wait_for_secs < min_time  || wait_for_secs > max_time {
+                if wait_for_secs < min_time {
+                    app.emit(
+                        "log",
+                        format!(
+                            "福袋即将开始 {:?} 秒, 小于设定的最小时间 {:?} 秒，放弃这个福袋",wait_for_secs, min_time
+                        ),
+                    )
+                    .unwrap();
+                } else if wait_for_secs > max_time {
+                    app.emit(
+                        "log",
+                        format!(
+                            "福袋要等 {:?} 秒, 超过设定的最大时间 {:?} 秒，放弃这个福袋",wait_for_secs, max_time
+                        ),
+                    )
+                    .unwrap();
+                }
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
                 state_.limit_room += 1;

@@ -2,7 +2,7 @@ use crate::bit::MyError;
 #[allow(unused)]
 use reqwest::Client;
 use serde_json::json;
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, time::{Duration}};
 
 //const API_URL: &str = "http://127.0.0.1:8787";
 const API_URL: &str = "http://193.134.211.160:8787";

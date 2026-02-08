@@ -97,47 +97,55 @@ async fn browser_windows_open(browser_id: &str) -> Result<(), tauri::Error> {
 }
 
 #[tauri::command]
-async fn test_login_required(params: String) -> Result<bool, String> {
-    let json = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
-    let group_ids = json["group_id"].as_array().unwrap();
-    let mut group_id = String::from("");
+async fn restart_window(app: AppHandle, params: String) -> Result<(), String> {
+    let options = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
+    let seqs = options["seqs"].as_array().unwrap();
+    let group_ids = options["group_id"].as_array().unwrap();
+    let group_id;
     if group_ids.len() > 0 {
         group_id = group_ids[0].as_str().unwrap().to_string();
+    } else {
+        return Err("选择要执行的分组".to_string());
     }
-    let windows = bit::browser_group_windows(group_id).await.unwrap();
-    println!("windows is: {:?}", windows);
-    Ok(true)
-}
-
-#[tauri::command]
-async fn restart_select_automation(
-    app: AppHandle,
-    options: serde_json::Value,
-) -> Result<(), String> {
-    let seqs = options["seqs"].as_array().unwrap();
     let mut wait_for: Vec<serde_json::Value> = vec![];
+    let windows = bit::browser_group_windows(group_id).await.unwrap();
+
+    for win in windows {
+        let win_seq = win["seq"].as_u64().unwrap();
+        for seq in seqs {
+            let seq = seq.as_str().unwrap().parse::<u64>().unwrap();
+            if seq == win_seq {
+                wait_for.push(json!({"id": win["id"].as_str(), "seq":seq}));
+            }
+        }
+    }
+
+    if wait_for.len() <= 0 {
+        return Err("请先选择要重启的窗口".to_string());
+    }
+
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let mut state_ = state.lock().unwrap();
+        let mut state_: std::sync::MutexGuard<'_, AppState> = state.lock().unwrap();
         for seq in seqs {
-            for (k, e) in state_.bit_window_list.iter() {
-                let seq_ = seq["seq"].as_str().unwrap().to_string();
-                let e_ = e.to_owned();
-                if e_ == seq_ {
-                    wait_for.push(json!({"seq":seq_, "id":k}));
-                }
+            if state_.bit_window_list.contains_key(&seq.to_string()) {
+                state_.bit_window_list.remove(&seq.to_string());
             }
         }
 
         for seq in seqs {
-            let seq = seq["seq"].as_str().unwrap().to_string();
-            if let Some(child) = state_.chrome_driver_child.get_mut(&seq) {
+            let seq_ = seq.as_str().unwrap().parse::<u64>().unwrap();
+            if let Some(child) = state_.chrome_driver_child.get_mut(&seq_.to_string()) {
                 child.kill().unwrap();
                 child.wait().unwrap();
             }
         }
     }
+    for w in  &wait_for {
+        let _ = bit::browser_close(w["id"].as_str().unwrap()).await;
+    }
     return automation_run(app, wait_for, options).await;
+
 }
 
 #[tauri::command]
@@ -161,6 +169,7 @@ async fn start_automation(app: AppHandle, params: String) -> Result<(), String> 
 
 #[tauri::command]
 async fn re_start_automation(app: AppHandle, params: String) -> Result<(), String> {
+    //重启死掉你窗口，或者你自己弄死的窗口
     //重新启动自动化任务逻辑跟之前的逻辑是一样子的
     let json = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
     let group_ids = json["group_id"].as_array().unwrap();
@@ -183,7 +192,6 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
     for (k, _) in s.into_iter() {
         alived_windows.push(k.to_string());
     }
-
     for k in ids_clone.into_iter() {
         if !alived_windows.contains(&k) {
             wait_for_open.push(k);
@@ -192,14 +200,29 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
 
     let mut wait_for: Vec<serde_json::Value> = vec![];
 
+    let state = GLOBAL_APP_STATE.get().unwrap().clone();
     for bid in wait_for_open {
         let res = bit::browser_detail(bid).await.unwrap();
         println!("browser detail res is: {:?}", res);
         let win = res["data"].as_object().unwrap();
-        let seq = win["seq"].as_u64().unwrap().to_string();
+        let seq = win["seq"].as_u64().unwrap();
         let browser_id = win["id"].as_str().unwrap().to_string();
         wait_for.push(json!({"seq":seq, "id":browser_id}));
+        let mut state_ = state.lock().unwrap();
+        if !state_.bit_window_list.contains_key(&browser_id) {
+            state_
+                .bit_window_list
+                .insert(browser_id.clone(), seq.to_string());
+        }
+
+        if state_.chrome_driver_child.contains_key(&seq.to_string()) {
+            if let Some(child) = state_.chrome_driver_child.get_mut(&seq.to_string()).take() {
+                child.kill().unwrap();
+                child.wait().unwrap();
+            }
+        }
     }
+
     return automation_run(app, wait_for, json).await;
 }
 
@@ -544,9 +567,9 @@ fn spider_with_multiple_threads(
                         "room_id": room_id.to_string(),
                         "web_rid":web_rid.to_string(),
                         "title":title.to_string(),
-                        "type":_tp, 
-                        "cookie":cookie__, 
-                        "token": _token, 
+                        "type":_tp,
+                        "cookie":cookie__,
+                        "token": _token,
                         "sleep":rand_number,
                         "display_value": display_value,
                         "options":_options,
@@ -597,16 +620,15 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             flexable_windows,
             fetch_bitbrowser_group,
-            restart_select_automation,
             spider_with_multiple_threads_stop,
             spider_with_multiple_threads,
             get_ip,
+            restart_window,
             bit_group_browsers,
             browser_windows_open,
             start_automation,
             stop_automation,
             mac_address,
-            test_login_required,
             re_start_automation,
             window_bounds,
         ])

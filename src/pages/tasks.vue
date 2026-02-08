@@ -464,9 +464,10 @@ let windowOptions = reactive({
 
 const task_store_key = "task_store_key";
 
-const onSubmit = () => {
-    console.log("submit!");
+const onSubmit = async () => {
+    await searchHandler();
 };
+
 const saveDefaultParams = async () => {
     try {
         await store.setStoreKey(task_store_key, {
@@ -560,9 +561,6 @@ const startAutomation = async () => {
                 console.log("start automation result is: ", res);
             } catch (error) {
                 console.error("Error invoking browser_group_windows:", error);
-                //start_btn_disabled.value = false;
-                //browserOptionsDisabled.value = false;
-                //groupSelectFormDisabled.value = false;
                 ElMessage.error(error);
             }
         })
@@ -877,8 +875,40 @@ const handle_select_change = (val) => {
 }
 
 const restart_windows = async () => {
+    if(multiple_windows_select.value.length <= 0) {
+        ElMessage.warning("请选择要重启的窗口");
+        return;
+    }
+    let seqs = [];
     multiple_windows_select.value.forEach((x) => {
-        console.log(x, x.id, x.seq, x.create_at);
+        seqs.push(x.seq);
+    });
+
+    ElMessageBox.confirm("确定重启选中的么？").then(async() => {
+        try {
+            let res = await invoke("restart_window", {
+              params: JSON.stringify({
+                    group_id: groupSelection.value,
+                    thread_number: browserOptions.thread_number,
+                    up_limit: browserOptions.up_limit,
+                    second_prize_rate: browserOptions.second_prize_rate,
+                    enable_second_check: browserOptions.enable_second_check,
+                    loop_run: browserOptions.loop_run,
+                    tp: browserOptions.tp,
+                    max_time: spiderOptions.max_time,
+                    min_time: spiderOptions.min_time,
+                    use_time_strict: spiderOptions.use_time_strict,
+                    join_fans_group: spiderOptions.join_fans_group,
+                    can_used_times: browserOptions.can_used_times,
+                    seqs: seqs,
+                })
+           });
+           ElMessage.success(`${res} 重记成功`)
+        }catch(e) {
+            ElMessage.warning(`${e} 重记失败`);
+        }
+    }, (r) => {
+        ElMessage.warning("取消重启");
     });
 }
 
