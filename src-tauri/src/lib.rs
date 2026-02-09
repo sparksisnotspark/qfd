@@ -31,6 +31,9 @@ pub struct AppState {
     pub fd_count: i32,
     pub chrome_driver_child: HashMap<String, Child>,
     pub bit_window_list: HashMap<String, String>,
+    pub room_list: Vec<serde_json::Value>,
+    pub room_list_used: Vec<serde_json::Value>,
+    pub latest_sync_id: u64,
 }
 
 static GLOBAL_APP_STATE: OnceLock<Arc<Mutex<AppState>>> = OnceLock::new();
@@ -59,6 +62,58 @@ async fn fetch_bitbrowser_group() -> Result<Vec<(String, String)>, String> {
         Ok(v) => Ok(v),
         Err(e) => Err(format!("error of {:?}", e)),
     }
+}
+
+#[tauri::command]
+async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
+    let id_synced;
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let state_ = state.lock().unwrap();
+        id_synced = state_.latest_sync_id;
+    }
+    let store = app.app_handle().store("app.json").unwrap();
+    let token = store
+        .get("token")
+        .unwrap()
+        .as_str()
+        .to_owned()
+        .unwrap()
+        .to_string();
+
+    let res = gather::fetch_server_rooms(&token, tp, id_synced).await;
+
+    if res.is_ok() {
+        let t = res.unwrap();
+        let data = t["data"].as_array().unwrap();
+        {
+            let state = GLOBAL_APP_STATE.get().unwrap().clone();
+            let mut state_ = state.lock().unwrap();
+            for info in data {
+                let room_url = info["room_url"].as_str().unwrap();
+                let room_id = info["room_id"].as_str().unwrap();
+                let web_rid = info["web_rid"].as_str().unwrap();
+                let title = info["title"].as_str().unwrap();
+                let send_time = info["send_time"].as_u64().unwrap();
+                let delay = info["delay"].as_u64().unwrap();
+                let expired_at = info["expired_at"].as_u64().unwrap();
+                let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay, "expired_at": expired_at});
+                state_.room_list.push(value);
+                state_.room_list.sort_by(|a, b| {
+                    let ac_ = a["expired_at"].as_u64().unwrap();
+                    let bc_ = b["expired_at"].as_u64().unwrap();
+                    bc_.cmp(&ac_)
+                });
+            }
+
+            if data.len() > 0 {
+                //保存最后同步的ID，
+                state_.latest_sync_id = data[0]["id"].as_u64().unwrap();
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -141,11 +196,10 @@ async fn restart_window(app: AppHandle, params: String) -> Result<(), String> {
             }
         }
     }
-    for w in  &wait_for {
+    for w in &wait_for {
         let _ = bit::browser_close(w["id"].as_str().unwrap()).await;
     }
     return automation_run(app, wait_for, options).await;
-
 }
 
 #[tauri::command]
@@ -336,41 +390,63 @@ async fn automation_run(
                     has_closed_all = true;
                 }
 
-                let room_json = gather::async_fetch_room(&token, &tp, &json_).await;
-                if room_json.is_err() {
-                    let s = "获取直播间信息超时,等待5秒再试";
-                    println!("{:?}", s);
-                    app.emit("db", json!({"action":"update", "task_msg":s, "seq":seq}))
-                        .unwrap();
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
+                let room_json;
+
+                {
+                    let now = SystemTime::now();
+                    let now_ts = now
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                    let mut state_ = state.lock().unwrap();
+                    let s = state_.room_list.pop();
+                    if s.is_none() {
+                        let s1 = state_.room_list_used.pop();
+                        if s1.is_none() {
+                            app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待3秒再试", "seq":seq})).unwrap();
+                            continue;
+                        } else {
+                            room_json = s1.unwrap();
+                            state_.room_list_used.push(room_json.clone());
+                        }
+                    } else {
+                        room_json = s.unwrap();
+                        state_.room_list_used.push(room_json.clone());
+                    }
+
+                    state_
+                        .room_list_used
+                        .retain(|x| x["expired_at"].as_u64().unwrap() < now_ts);
+
+                    state_
+                        .room_list
+                        .retain(|x| x["expired_at"].as_u64().unwrap() < now_ts);
+
+                    //刪除過期的
                 }
 
-                let room_json = room_json.unwrap();
+                let data = room_json.clone();
+                /*
                 let data = room_json["data"].as_array().unwrap();
                 if data.is_empty() {
                     app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待3秒再试", "seq":seq})).unwrap();
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
+                */
 
-                let title = data[0]["title"].as_str().unwrap();
+                let title = data["title"].as_str().unwrap();
                 app.emit(
                     "db",
                     json!({"action":"update", "task_msg":format!("获取直播间{:?}", title), "task_name":task_name, "seq":seq}),
                 )
                 .unwrap();
 
-                let send_time = data[0].get("send_time").unwrap().as_u64().unwrap();
-                let delay = data[0].get("delay").unwrap().as_u64().unwrap();
-                //let leave_time = bit::caclulate_leave_time(send_time, delay);  //不知道live time
-                //要干嘛
-                let room_url = data[0]
-                    .get("room_url")
-                    .unwrap()
-                    .as_str()
-                    .unwrap()
-                    .to_string();
+                let send_time = data.get("send_time").unwrap().as_u64().unwrap();
+                let delay = data.get("delay").unwrap().as_u64().unwrap();
+                let room_url = data.get("room_url").unwrap().as_str().unwrap().to_string();
                 let options = json!({
                     "delay": delay,
                     "send_time": send_time,
@@ -624,6 +700,7 @@ pub fn run() {
             spider_with_multiple_threads,
             get_ip,
             restart_window,
+            sync_server_room,
             bit_group_browsers,
             browser_windows_open,
             start_automation,

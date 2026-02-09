@@ -65,18 +65,29 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let title = info["title"].as_str().unwrap();
             let send_time = info["send_time"].as_u64().unwrap();
             let delay = info["delay"].as_u64().unwrap();
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
-            let x = gather::sync_add_one_room(token, value);
+            //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
+            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay, "expired_at":send_time + delay});
+            //let x = gather::sync_add_one_room(token, value);
             {
+                let now = SystemTime::now();
+                let now_ts = now
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                let value_ = value.clone();
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
                 state_.allowed_count += 1;
-            }
-            if x.is_ok() {
+                state_.room_list.push(value_);
+                state_.room_list.sort_by(|a, b| {
+                    let ac_ = a["expired_at"].as_u64().unwrap();
+                    let bc_ = b["expired_at"].as_u64().unwrap();
+                    bc_.cmp(&ac_)
+                });
+                state_
+                    .room_list
+                    .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
                 app.emit("log", "插入红包的信息成功").unwrap();
-            } else {
-                app.emit("log", format!("插入红包失败{:?}", x.err().unwrap()))
-                    .unwrap();
             }
         } else {
             app.emit("log", format!("解析红包信息出错  {:?}", x.err().unwrap()))
@@ -112,12 +123,13 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 .unwrap()
                 .as_secs();
             let wait_for_secs = send_time + delay - now_ts;
-            if wait_for_secs < min_time  || wait_for_secs > max_time {
+            if wait_for_secs < min_time || wait_for_secs > max_time {
                 if wait_for_secs < min_time {
                     app.emit(
                         "log",
                         format!(
-                            "福袋即将开始 {:?} 秒, 小于设定的最小时间 {:?} 秒，放弃这个福袋",wait_for_secs, min_time
+                            "福袋即将开始 {:?} 秒, 小于设定的最小时间 {:?} 秒，放弃这个福袋",
+                            wait_for_secs, min_time
                         ),
                     )
                     .unwrap();
@@ -125,7 +137,8 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                     app.emit(
                         "log",
                         format!(
-                            "福袋要等 {:?} 秒, 超过设定的最大时间 {:?} 秒，放弃这个福袋",wait_for_secs, max_time
+                            "福袋要等 {:?} 秒, 超过设定的最大时间 {:?} 秒，放弃这个福袋",
+                            wait_for_secs, max_time
                         ),
                     )
                     .unwrap();
@@ -141,20 +154,38 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 prize_count, lucky_count, delay, candidate_num
             );
 
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay});
-            let x = gather::sync_add_one_room(token, value);
+            //let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay});
+            let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay, "expired_at":send_time + delay});
+            //let x = gather::sync_add_one_room(token, value);
             {
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
                 state_.fd_count += 1;
+                state_.room_list.push(value);
+                state_.room_list.sort_by(|a, b| {
+                    let ac_ = a["expired_at"].as_u64().unwrap();
+                    let bc_ = b["expired_at"].as_u64().unwrap();
+                    bc_.cmp(&ac_)
+                });
+                let now = SystemTime::now();
+                let now_ts = now
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                state_
+                    .room_list
+                    .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
+                app.emit("log", "插入房间成功!").unwrap();
             }
 
+            /*
             if x.is_err() {
                 let s = format!("插入房间出错{:?}", x.err().unwrap());
                 app.emit("log", s).unwrap();
             } else {
                 app.emit("log", "插入房间成功!").unwrap();
             }
+            */
         } else {
             app.emit("log", format!("福袋解析出错 {:?}", x.err().unwrap()))
                 .unwrap();

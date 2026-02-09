@@ -2,7 +2,7 @@ use crate::bit::MyError;
 #[allow(unused)]
 use reqwest::Client;
 use serde_json::json;
-use std::{collections::HashMap, time::{Duration}};
+use std::{collections::HashMap, time::Duration};
 
 //const API_URL: &str = "http://127.0.0.1:8787";
 const API_URL: &str = "http://193.134.211.160:8787";
@@ -16,6 +16,26 @@ pub async fn async_fetch_room(
     let url: String = format!("{}/api/fetchRoom", API_URL);
     let client = Client::new();
     let json = json!({"type":tp, "app_key":app_key, "params":params});
+    let resp = client
+        .get(url)
+        .json(&json)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
+        .header("app-key", app_key)
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
+    let json = resp.json::<serde_json::Value>().await?;
+    Ok(json)
+}
+
+pub async fn fetch_server_rooms(
+    app_key: &str,
+    tp: &str,
+    id: u64,
+) -> Result<serde_json::Value, MyError> {
+    let url: String = format!("{}/api/serverRooms", API_URL);
+    let client = Client::new();
+    let json = json!({"tp":tp, "app_key":app_key, "id":id});
     let resp = client
         .get(url)
         .json(&json)
