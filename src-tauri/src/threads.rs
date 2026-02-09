@@ -67,7 +67,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let delay = info["delay"].as_u64().unwrap();
             //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
             let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay, "expired_at":send_time + delay});
-            //let x = gather::sync_add_one_room(token, value);
+            let _ = gather::sync_add_one_room(token, value.clone());
             {
                 let now = SystemTime::now();
                 let now_ts = now
@@ -82,7 +82,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 state_.room_list.sort_by(|a, b| {
                     let ac_ = a["expired_at"].as_u64().unwrap();
                     let bc_ = b["expired_at"].as_u64().unwrap();
-                    bc_.cmp(&ac_)
+                    ac_.cmp(&bc_)
                 });
                 state_
                     .room_list
@@ -156,7 +156,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
 
             //let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay});
             let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay, "expired_at":send_time + delay});
-            //let x = gather::sync_add_one_room(token, value);
+            let _ = gather::sync_add_one_room(token, value.clone()); //提交服务器
             {
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
@@ -165,16 +165,19 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 state_.room_list.sort_by(|a, b| {
                     let ac_ = a["expired_at"].as_u64().unwrap();
                     let bc_ = b["expired_at"].as_u64().unwrap();
-                    bc_.cmp(&ac_)
+                    ac_.cmp(&bc_)
                 });
+
                 let now = SystemTime::now();
                 let now_ts = now
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
+
                 state_
                     .room_list
                     .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
+
                 app.emit("log", "插入房间成功!").unwrap();
             }
 

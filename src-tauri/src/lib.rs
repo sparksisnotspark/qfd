@@ -323,7 +323,6 @@ async fn automation_run(
         let app = app.clone();
         let browser_id = browser_id.clone();
         let task_name = task_name.clone();
-        let json_ = json.clone();
         {
             let state = GLOBAL_APP_STATE.get().unwrap().clone();
             let mut state_ = state.lock().unwrap();
@@ -418,11 +417,11 @@ async fn automation_run(
 
                     state_
                         .room_list_used
-                        .retain(|x| x["expired_at"].as_u64().unwrap() < now_ts);
+                        .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
 
                     state_
                         .room_list
-                        .retain(|x| x["expired_at"].as_u64().unwrap() < now_ts);
+                        .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
 
                     //刪除過期的
                 }
@@ -466,7 +465,11 @@ async fn automation_run(
                         let s = match err {
                             MyError::StringError(es) => es,
                             MyError::TauriError => "Tauri Error".to_string(),
-                            MyError::WebDriverError(e) => format!("{:?}", e).to_string(),
+                            MyError::WebDriverError(e) => {
+                                //重启一下数什么玩意
+                                println!("查看web driver error {:?}", e);
+                                "".to_string()
+                            },
                             MyError::RequestError(e) => format!("{:?}", e).to_string(),
                             MyError::SerdeError(e) => format!("{:?}", e).to_string(),
                         };
@@ -481,7 +484,10 @@ async fn automation_run(
                         let s = match err_str {
                             MyError::StringError(es) => es,
                             MyError::TauriError => "Tauri Error".to_string(),
-                            MyError::WebDriverError(e) => format!("{:?}", e).to_string(),
+                            MyError::WebDriverError(e) => {
+
+                                format!("{:?}", e).to_string()
+                            },
                             MyError::RequestError(e) => format!("{:?}", e).to_string(),
                             MyError::SerdeError(e) => format!("{:?}", e).to_string(),
                         };
