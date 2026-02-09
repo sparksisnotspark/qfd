@@ -874,6 +874,26 @@ const handle_select_change = (val) => {
     multiple_windows_select.value = val;
 }
 
+let server_interval = null;
+
+const start_sync_server_data = async () => {
+    server_interval = setInterval(async () => {
+        try {
+            let _ = await invoke("sync_server_room", {"tp":browserOptions.tp});
+            ElMessage.success("sync room success");
+        } catch (e) {
+            ElMessage.warning("sync Server Error");
+        }
+    }, 5000); 
+}
+
+const stop_sync_server_data = async () => {
+    if(server_interval) {
+        clearInterval(server_interval); 
+    }
+    ElMessage.success("stop sync server sucess!")
+}
+
 const restart_windows = async () => {
     if(multiple_windows_select.value.length <= 0) {
         ElMessage.warning("请选择要重启的窗口");
