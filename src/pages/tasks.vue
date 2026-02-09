@@ -559,6 +559,7 @@ const startAutomation = async () => {
                 });
                 ElMessage.success("自动化运行已启动");
                 console.log("start automation result is: ", res);
+                await start_sync_server_data();
             } catch (error) {
                 console.error("Error invoking browser_group_windows:", error);
                 ElMessage.error(error);
@@ -633,7 +634,8 @@ const stopAutomation = async () => {
                 ElMessage.success("自动化停止成功");
                 loading.close();
                 let r = await clean_task_name();
-                console.log("r is", r);
+                console.log("stop", r);
+                await stop_sync_server_data();
             } catch (error) {
                 loading.close();
                 console.error("Error invoking stop_automation:", error);
