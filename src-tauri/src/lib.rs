@@ -105,6 +105,15 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                     bc_.cmp(&ac_)
                 });
             }
+            let now = SystemTime::now();
+            let now_ts = now
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            state_
+                .room_list
+                .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
 
             if data.len() > 0 {
                 //保存最后同步的ID，
@@ -424,6 +433,8 @@ async fn automation_run(
                         .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
 
                     //刪除過期的
+                    println!("room list is: {:?}", state_.room_list);
+                    println!("room list used is: {:?}", state_.room_list_used);
                 }
 
                 let data = room_json.clone();
@@ -469,7 +480,7 @@ async fn automation_run(
                                 //重启一下数什么玩意
                                 println!("查看web driver error {:?}", e);
                                 "".to_string()
-                            },
+                            }
                             MyError::RequestError(e) => format!("{:?}", e).to_string(),
                             MyError::SerdeError(e) => format!("{:?}", e).to_string(),
                         };
@@ -484,10 +495,7 @@ async fn automation_run(
                         let s = match err_str {
                             MyError::StringError(es) => es,
                             MyError::TauriError => "Tauri Error".to_string(),
-                            MyError::WebDriverError(e) => {
-
-                                format!("{:?}", e).to_string()
-                            },
+                            MyError::WebDriverError(e) => format!("{:?}", e).to_string(),
                             MyError::RequestError(e) => format!("{:?}", e).to_string(),
                             MyError::SerdeError(e) => format!("{:?}", e).to_string(),
                         };

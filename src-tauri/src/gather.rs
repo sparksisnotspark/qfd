@@ -185,7 +185,6 @@ pub fn parse_luckbox_info(
         println!("bussiness type is: {:?}", business_type);
         let pack_count = i["biz_extra"].as_str().unwrap();
         let extra_ = serde_json::from_str::<serde_json::Value>(pack_count).unwrap();
-        println!("extra is: {:?}", extra_);
 
         let pack_count = extra_["tags"][business_type.to_string().as_str()]
             .as_str()
@@ -265,7 +264,6 @@ pub fn parse_lottery_info(
         .send()?;
 
     let json = resp.json::<serde_json::Value>()?;
-    println!("resp info isdd json: {:?}", json);
     if json["data"].as_object().is_some() {
         let info = json["data"].as_object().unwrap();
         if info.contains_key("lottery_info") {
