@@ -127,6 +127,10 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                     delay,
                     expired_at,
                 };
+                let _p = state_.room_list.iter().position(|p| p.room_id == room_id);
+                if _p.is_some() { //过滤掉已存在的数据
+                    continue;
+                }
                 state_.room_list.push(value);
                 state_.room_list.sort_by(|a, b| {
                     let ac_ = a.expired_at;
