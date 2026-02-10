@@ -131,7 +131,7 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                 state_.room_list.sort_by(|a, b| {
                     let ac_ = a.expired_at;
                     let bc_ = b.expired_at;
-                    bc_.cmp(&ac_)
+                    ac_.cmp(&bc_)
                 });
             }
             let now = SystemTime::now();
