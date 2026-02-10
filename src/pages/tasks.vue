@@ -104,12 +104,10 @@
                                         <el-switch v-model="browserOptions.loop_run"></el-switch>
                                     </el-form-item>
 
-                                    <!--
                                     <el-form-item label="下发次数">
                                         <el-input-number v-model="browserOptions.can_used_times" type="number"
                                             placeholder="下发次数" />
                                     </el-form-item>
-                                -->
 
                                 </el-form>
                             </div>

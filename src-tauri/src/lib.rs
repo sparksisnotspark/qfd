@@ -324,7 +324,7 @@ async fn automation_run(
     let min_time = json["min_time"].as_u64().unwrap();
     let max_time = json["max_time"].as_u64().unwrap();
     let use_time_strict = json["use_time_strict"].as_bool().unwrap_or(false);
-    //let can_used_times = json["can_used_times"].as_u64().unwrap();
+    let can_used_times = json["can_used_times"].as_u64().unwrap();
     let gather_type = json["tp"].as_str().unwrap().to_string();
     let store = app.app_handle().store("app.json").unwrap();
     let token = store
@@ -430,7 +430,7 @@ async fn automation_run(
                 )
                 .unwrap();
 
-                let room_json;
+                let mut room_json;
 
                 {
                     let now = SystemTime::now();
@@ -450,10 +450,14 @@ async fn automation_run(
                             continue;
                         } else {
                             room_json = s1.unwrap();
-                            state_.room_list_used.push(room_json.clone());
+                            room_json.used_times = room_json.used_times + 1;
+                            if room_json.used_times < can_used_times {
+                                state_.room_list_used.push(room_json.clone());
+                            }
                         }
                     } else {
                         room_json = s.unwrap();
+                        room_json.used_times = room_json.used_times + 1;
                         state_.room_list_used.push(room_json.clone());
                     }
 
