@@ -179,6 +179,8 @@ pub fn parse_luckbox_info(
         let box_type = i["box_type"].as_i64().unwrap();
         if box_type == 0 {
             all_gift = false;
+        } else { //如果不是钻石的，就跳到下一个
+            continue;
         }
         let business_type = i["business_type"].as_i64().unwrap();
         //println!("bussiness type is: {:?}", business_type);

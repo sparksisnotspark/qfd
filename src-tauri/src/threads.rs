@@ -63,7 +63,8 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let send_time = info["send_time"].as_u64().unwrap();
             let delay = info["delay"].as_u64().unwrap();
             //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay,"used_times": 0, "expired_at":send_time + delay});
+            let expired_at = send_time + delay;
+            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay,"used_times": 0, "expired_at": expired_at});
             let _ = gather::sync_add_one_room(token, value.clone());
             {
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
@@ -81,6 +82,13 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
+
+                let wait_for_ts = expired_at - now_ts;
+                if wait_for_ts < min_time || wait_for_ts > max_time {
+                    app.emit("log", "时间不在区间内").unwrap();
+                    return;
+                }
+
                 let value_ = crate::RoomUrlList {
                     room_url: room_url.to_string(),
                     room_id: room_id.to_string(),
@@ -90,7 +98,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                     send_time,
                     used_times: 0,
                     delay,
-                    expired_at: send_time + delay,
+                    expired_at: expired_at,
                 };
                 state_.allowed_count += 1;
                 state_.room_list.push(value_);
