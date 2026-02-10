@@ -449,10 +449,14 @@ async fn automation_run(
                             app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待3秒再试", "seq":seq})).unwrap();
                             continue;
                         } else {
-                            room_json = s1.unwrap();
-                            room_json.used_times = room_json.used_times + 1;
-                            if room_json.used_times < can_used_times {
-                                state_.room_list_used.push(room_json.clone());
+                            let mut t = s1.unwrap();
+                            if t.used_times < can_used_times {
+                                t.used_times = t.used_times + 1;
+                                state_.room_list_used.push(t.clone());
+                                room_json = t.clone();
+                            } else {
+                                app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"使用次数超限,等3秒再试", "seq":seq})).unwrap();
+                                continue;
                             }
                         }
                     } else {

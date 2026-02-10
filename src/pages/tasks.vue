@@ -886,11 +886,10 @@ const start_sync_server_data = async () => {
     server_interval = setInterval(async () => {
         try {
             let _ = await invoke("sync_server_room", {"tp":browserOptions.tp});
-            ElMessage.success("sync room success");
         } catch (e) {
             ElMessage.warning("sync Server Error");
         }
-    }, 10000); 
+    }, 5); 
 }
 
 const stop_sync_server_data = async () => {
