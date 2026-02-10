@@ -141,12 +141,15 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                 .as_secs();
             state_.room_list.retain(|x| x.expired_at > now_ts);
             if data.len() > 0 {
-                //保存最后同步的ID，
-                state_.latest_sync_id = data[0]["id"].as_u64().unwrap();
+                //获取最后一条数据的ID
+                let len = data.len();
+                state_.latest_sync_id = data[len-1]["id"].as_u64().unwrap();
             }
 
             app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
         }
+    } else {
+        return Err("同步失败".to_string());
     }
     Ok(())
 }

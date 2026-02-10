@@ -887,9 +887,9 @@ const start_sync_server_data = async () => {
         try {
             let _ = await invoke("sync_server_room", {"tp":browserOptions.tp});
         } catch (e) {
-            ElMessage.warning("sync Server Error");
+            ElMessage.warning("同步服务器数据失败!" + e);
         }
-    }, 5); 
+    }, 5000); 
 }
 
 const stop_sync_server_data = async () => {
