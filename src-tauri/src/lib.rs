@@ -31,9 +31,22 @@ pub struct AppState {
     pub fd_count: i32,
     pub chrome_driver_child: HashMap<String, Child>,
     pub bit_window_list: HashMap<String, String>,
-    pub room_list: Vec<serde_json::Value>,
-    pub room_list_used: Vec<serde_json::Value>,
+    pub room_list: Vec<RoomUrlList>,
+    pub room_list_used: Vec<RoomUrlList>,
     pub latest_sync_id: u64,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct RoomUrlList {
+    pub room_url: String,
+    pub room_id: String,
+    pub web_rid: String,
+    pub title: String,
+    pub tp: String,
+    pub send_time: u64,
+    pub used_times: u64,
+    pub delay: u64,
+    pub expired_at: u64,
 }
 
 static GLOBAL_APP_STATE: OnceLock<Arc<Mutex<AppState>>> = OnceLock::new();
@@ -81,6 +94,11 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
         .unwrap()
         .to_string();
 
+    println!(
+        "最後同步的ID {:?} token is:{:?} id:{:?}",
+        id_synced, token, id_synced
+    );
+
     let res = gather::fetch_server_rooms(&token, tp, id_synced).await;
 
     if res.is_ok() {
@@ -96,12 +114,23 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                 let title = info["title"].as_str().unwrap();
                 let send_time = info["send_time"].as_u64().unwrap();
                 let delay = info["delay"].as_u64().unwrap();
+                let tp = info["tp"].as_str().unwrap();
                 let expired_at = info["expired_at"].as_u64().unwrap();
-                let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay, "expired_at": expired_at});
+                let value = RoomUrlList {
+                    room_url: room_url.to_string(),
+                    room_id: room_id.to_string(),
+                    web_rid: web_rid.to_string(),
+                    title: title.to_string(),
+                    tp: tp.to_string(),
+                    send_time,
+                    used_times: 0,
+                    delay,
+                    expired_at,
+                };
                 state_.room_list.push(value);
                 state_.room_list.sort_by(|a, b| {
-                    let ac_ = a["expired_at"].as_u64().unwrap();
-                    let bc_ = b["expired_at"].as_u64().unwrap();
+                    let ac_ = a.expired_at;
+                    let bc_ = b.expired_at;
                     bc_.cmp(&ac_)
                 });
             }
@@ -110,18 +139,15 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-
-            state_
-                .room_list
-                .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
-
+            state_.room_list.retain(|x| x.expired_at > now_ts);
             if data.len() > 0 {
                 //保存最后同步的ID，
                 state_.latest_sync_id = data[0]["id"].as_u64().unwrap();
             }
+
+            app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
         }
     }
-
     Ok(())
 }
 
@@ -298,6 +324,7 @@ async fn automation_run(
     let min_time = json["min_time"].as_u64().unwrap();
     let max_time = json["max_time"].as_u64().unwrap();
     let use_time_strict = json["use_time_strict"].as_bool().unwrap_or(false);
+    //let can_used_times = json["can_used_times"].as_u64().unwrap();
     let gather_type = json["tp"].as_str().unwrap().to_string();
     let store = app.app_handle().store("app.json").unwrap();
     let token = store
@@ -324,7 +351,6 @@ async fn automation_run(
             ));
         }
 
-        println!("res of this: {:?}", res);
         let dr = res["data"]["driver"].as_str().unwrap().to_string();
         let http = res["data"]["http"].as_str().unwrap().to_string();
         let tp = gather_type.clone();
@@ -398,6 +424,12 @@ async fn automation_run(
                     has_closed_all = true;
                 }
 
+                app.emit(
+                    "db",
+                    json!({"action":"update", "task_msg":"等待获取直播间", "task_name":task_name, "seq":seq}),
+                )
+                .unwrap();
+
                 let room_json;
 
                 {
@@ -409,6 +441,7 @@ async fn automation_run(
 
                     let state = GLOBAL_APP_STATE.get().unwrap().clone();
                     let mut state_ = state.lock().unwrap();
+
                     let s = state_.room_list.pop();
                     if s.is_none() {
                         let s1 = state_.room_list_used.pop();
@@ -424,39 +457,23 @@ async fn automation_run(
                         state_.room_list_used.push(room_json.clone());
                     }
 
-                    state_
-                        .room_list_used
-                        .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
-
-                    state_
-                        .room_list
-                        .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
-
+                    state_.room_list_used.retain(|x| x.expired_at > now_ts);
+                    state_.room_list.retain(|x| x.expired_at > now_ts);
                     //刪除過期的
-                    println!("room list is: {:?}", state_.room_list);
-                    println!("room list used is: {:?}", state_.room_list_used);
                 }
 
                 let data = room_json.clone();
-                /*
-                let data = room_json["data"].as_array().unwrap();
-                if data.is_empty() {
-                    app.emit("db", json!({"action":"update","dy_name":dy_name,  "dy_account":dy_account, "task_name":task_name, "task_msg":"没找到直播间，等待3秒再试", "seq":seq})).unwrap();
-                    tokio::time::sleep(Duration::from_secs(3)).await;
-                    continue;
-                }
-                */
 
-                let title = data["title"].as_str().unwrap();
+                let title = data.title;
                 app.emit(
                     "db",
                     json!({"action":"update", "task_msg":format!("获取直播间{:?}", title), "task_name":task_name, "seq":seq}),
                 )
                 .unwrap();
 
-                let send_time = data.get("send_time").unwrap().as_u64().unwrap();
-                let delay = data.get("delay").unwrap().as_u64().unwrap();
-                let room_url = data.get("room_url").unwrap().as_str().unwrap().to_string();
+                let send_time = data.send_time;
+                let delay = data.delay;
+                let room_url = data.room_url;
                 let options = json!({
                     "delay": delay,
                     "send_time": send_time,
@@ -644,7 +661,7 @@ fn spider_with_multiple_threads(
                             let mut state_ = state.lock().unwrap();
                             state_.limit_room += 1;
                             state_.total += 1;
-                            app_.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+                            app_.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
                         }
                         continue;
                     }
@@ -679,7 +696,7 @@ fn spider_with_multiple_threads(
                             format!("本轮采集完成，线程结束，采集房间数: {}", room_count),
                         )
                         .unwrap();
-                        app_.emit("spider", json!({"total":state_.total, "allowed_count": state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+                        app_.emit("spider", json!({"total":state_.total, "allowed_count": state_.allowed_count, "fd_count":state_.fd_count,"allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
                     }
                     let payload = format!(
                         "web rid: {:?} room id: {:?} title: {:?} owner_nick {:?} user count {:?}",

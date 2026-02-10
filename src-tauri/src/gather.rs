@@ -176,13 +176,12 @@ pub fn parse_luckbox_info(
     let mut packet_list: Vec<serde_json::Value> = vec![];
     let mut all_gift = true;
     for i in data {
-        println!("i is: {:?}", i);
         let box_type = i["box_type"].as_i64().unwrap();
         if box_type == 0 {
             all_gift = false;
         }
         let business_type = i["business_type"].as_i64().unwrap();
-        println!("bussiness type is: {:?}", business_type);
+        //println!("bussiness type is: {:?}", business_type);
         let pack_count = i["biz_extra"].as_str().unwrap();
         let extra_ = serde_json::from_str::<serde_json::Value>(pack_count).unwrap();
 
@@ -196,10 +195,7 @@ pub fn parse_luckbox_info(
         let avg_diamond = (diamond_count as f64) / (pack_count_u64 as f64);
 
         if avg_diamond.round() < min_diamond as f64 {
-            println!(
-                "avg diamond {} is less than min diamond {}",
-                avg_diamond, min_diamond
-            );
+            //println!( "avg diamond {} is less than min diamond {}", avg_diamond, min_diamond);
             continue;
         }
 
@@ -208,10 +204,7 @@ pub fn parse_luckbox_info(
         let delay_time = i["delay_time"].as_i64().unwrap();
         let room_url = format!("https://live.douyin.com/{}", web_rid);
 
-        println!(
-            "box type is: {:?} pack count {:?} diamond_count {:?} send time {:?} delay time {:?} room url {:?}",
-            box_type, pack_count, diamond_count, send_time, delay_time, room_url
-        );
+        //println!( "box type is: {:?} pack count {:?} diamond_count {:?} send time {:?} delay time {:?} room url {:?}", box_type, pack_count, diamond_count, send_time, delay_time, room_url);
 
         let json_data = json!({"room_url":room_url, "room_id":room_id, "web_rid":web_rid, "pack_count":pack_count, "diamond_count": diamond_count, "title":title, "send_time":send_time, "delay":delay_time});
         packet_list.push(json_data);
@@ -267,7 +260,7 @@ pub fn parse_lottery_info(
     if json["data"].as_object().is_some() {
         let info = json["data"].as_object().unwrap();
         if info.contains_key("lottery_info") {
-            println!("info is: {:?}", info);
+            //println!("info is: {:?}", info);
             let prize_count = info["lottery_info"]["prize_count"].as_i64().unwrap();
             let lucky_count = info["lottery_info"]["lucky_count"].as_i64().unwrap();
             let conditions = info["lottery_info"]["conditions"].as_array().unwrap();
@@ -286,10 +279,7 @@ pub fn parse_lottery_info(
                 }
             });
 
-            println!(
-                "only big package {:?} people limit {:?}",
-                only_big_packet, people_limit
-            );
+            //println!( "only big package {:?} people limit {:?}", only_big_packet, people_limit);
 
             if need_diamond > 0 && join_fans_group == false {
                 println!("需要加粉丝团, 粉丝团没有打勾");
@@ -340,10 +330,10 @@ pub fn parse_lottery_info(
                 "room_url": room_url, 
                 "room_id": room_id, 
                 "web_rid": web_rid});
-            println!("采集符合条件的数据成功 {:?}", ret_json);
+            //println!("采集符合条件的数据成功 {:?}", ret_json);
             return Ok(ret_json);
         } else {
-            println!("did not contains lottery info");
+            //println!("did not contains lottery info");
         }
     }
     Err(MyError::StringError("没有福袋的数据".to_string()))

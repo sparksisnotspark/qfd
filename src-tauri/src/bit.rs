@@ -2,6 +2,7 @@ use lazy_regex::regex_is_match;
 use rand::Rng;
 use reqwest::{header, Client, Error};
 use serde_json::json;
+use std::arch::x86_64::_mm_move_epi64;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, error, os::windows::process::CommandExt, process::Stdio, thread};
 use tauri::{AppHandle, Emitter};
@@ -289,6 +290,12 @@ pub async fn hb_logic(
     seq: &str,
     options: &serde_json::Value,
 ) -> Result<(), MyError> {
+    app.emit(
+        "db",
+        json!({"action":"update","task_msg":"打开网址", "seq":seq}),
+    )
+    .unwrap();
+
     let send_time = options["send_time"].as_u64().unwrap();
     let delay = options["delay"].as_u64().unwrap();
     let min_time = options["min_time"].as_u64().unwrap(); //最小过期时间
@@ -305,7 +312,7 @@ pub async fn hb_logic(
     if rg_.is_err() {
         return Err(MyError::StringError("进直播间出错".to_string()));
     }
-    println!("options is {:?}", options);
+
     sleep(Duration::from_secs(1)).await;
 
     let dy_name = options["dy_name"].as_str().unwrap();
@@ -314,7 +321,7 @@ pub async fn hb_logic(
     let _ = driver.enter_default_frame().await;
     let el_ = driver
         .query(By::Css("div.redpacket"))
-        .wait(Duration::from_secs(3), Duration::from_millis(20))
+        .wait(Duration::from_secs(3), Duration::from_millis(200))
         .first()
         .await;
     if el_.is_err() {
@@ -396,10 +403,16 @@ pub async fn hb_logic(
     let mut hb_huode_diamond_count = 0; //红包获得钻石数
     let hbs_clone = hbs.clone();
     let mut all_gift = true;
-    let mut leave_time = caclulate_leave_time(send_time, delay);
+    //let mut leave_time = caclulate_leave_time(send_time, delay);
+    let mut leave_time = 10;
     let mut waiting_list: Vec<u64> = vec![];
     for el in hbs {
-        println!("每个点击按钮 {:?}", el);
+        app.emit(
+            "db",
+            json!({"action":"update","task_msg":"点击红包", "seq":seq}),
+        )
+        .unwrap();
+
         let is_gift_ = el
             .query(By::ClassName("list_container_exp1-left"))
             .wait(Duration::from_secs(2), Duration::from_millis(200))
@@ -488,7 +501,6 @@ pub async fn hb_logic(
             }
 
             tokio::time::sleep(Duration::from_millis(300)).await;
-
             //hb_canyu_count += 1;
         }
     }
@@ -528,11 +540,10 @@ pub async fn hb_logic(
             .wait(Duration::from_secs(1), Duration::from_millis(30))
             .all_from_selector()
             .await;
-        if !result.is_err() {
+        if result.is_ok() {
             let res = result.unwrap();
-            if res.is_empty() {
-                println!("empty of res")
-            } else {
+            app.emit("db", json!({"action":"update","task_msg":"解析红包结果", "dy_name":dy_name, "dy_account":dy_account, "seq":seq  })).unwrap();
+            if !res.is_empty() {
                 println!("找到结果，解析结果 0 index {:?} {:?}", i, res.len());
                 let result = res[1]
                     .query(By::Css(".result_outer"))
@@ -559,23 +570,25 @@ pub async fn hb_logic(
                     continue;
                 }
 
-                let text = rawtext.unwrap().attr("text").await.unwrap();
-
-                if !text.is_none() {
-                    let text = text.unwrap();
-                    println!("找到结果，解析结果 1 {:?} {:?}", i, text);
-                    if regex_is_match!(r"\d+钻", &text) {
-                        hb_win_count += 1;
-                        let re = lazy_regex::regex!(r"(\d+)");
-                        if let Some(c) = re.captures(&text.as_str()) {
-                            let huode = c.get(1).unwrap().as_str().parse::<i32>().unwrap();
-                            hb_huode_diamond_count += huode;
+                let text = rawtext.unwrap().attr("text").await;
+                if text.is_ok() {
+                    let tx = text.unwrap();
+                    if !tx.is_none() {
+                        let text = tx.unwrap();
+                        println!("找到结果，解析结果 1 {:?} {:?}", i, text);
+                        if regex_is_match!(r"\d+钻", &text) {
+                            hb_win_count += 1;
+                            let re = lazy_regex::regex!(r"(\d+)");
+                            if let Some(c) = re.captures(&text.as_str()) {
+                                let huode = c.get(1).unwrap().as_str().parse::<i32>().unwrap();
+                                hb_huode_diamond_count += huode;
+                            }
+                        } else {
+                            println!("not match \\d+ 没有赢到钻石!");
                         }
                     } else {
-                        println!("not match \\d+ 没有赢到钻石!");
+                        println!("没有找到获得结果");
                     }
-                } else {
-                    println!("没有找到获得结果");
                 }
             }
         }
@@ -588,11 +601,18 @@ pub async fn hb_logic(
     if user_diamond.is_ok() {
         diamond = user_diamond.unwrap();
     }
+    if diamond > 0 {
+        app.emit(
+            "db",
+            json!({"action":"update","task_msg":"开奖完成,准备执行下一个","hongbao_canyu_count": 1, "hongbao_win_count": hb_win_count,"hongbao_huode_diamond_count": hb_huode_diamond_count, "count_num":diamond,  "seq":seq  }),
+        ).unwrap();
+    } else {
+        app.emit(
+            "db",
+            json!({"action":"update","task_msg":"开奖完成,准备执行下一个","hongbao_canyu_count": 1, "hongbao_win_count": hb_win_count,"hongbao_huode_diamond_count": hb_huode_diamond_count, "seq":seq  }),
+        ).unwrap();
+    }
 
-    app.emit(
-        "db",
-        json!({"action":"update","task_msg":"开奖完成,准备执行下一个","hongbao_canyu_count": 1, "hongbao_win_count": hb_win_count,"hongbao_huode_diamond_count": hb_huode_diamond_count, "count_num":diamond,  "seq":seq  }),
-    ).unwrap();
     //----------------------------------------------------------
     Ok(())
 }
@@ -669,12 +689,16 @@ pub async fn fd_logic(
         return Ok(());
     }
 
-    driver
+    let mv_to_button = driver
         .action_chain()
         .move_to_element_center(&btn)
         .click()
         .perform()
-        .await?;
+        .await;
+
+    if mv_to_button.is_err() {
+        return Err(MyError::StringError("移动到按钮出错".to_string()));
+    }
 
     let exists = driver.query(By::Css("div.QOARtY3v")).exists().await?;
     if exists {
@@ -742,11 +766,11 @@ pub async fn fd_logic(
         println!("parase user error {:?}", user_diamond.err().unwrap());
     }
 
-    println!("win count : {:?} {:?}", win_count, win_diamond);
-    let _ = app.emit(
-        "db",
-        json!({"action":"update", "count_num":diamond,"task_msg":"完成福袋任务，准备下一个任务", "huode_diamond_count":win_diamond, "win_count": win_count, "seq":seq}),
-    );
+    if diamond != 0 {
+        app.emit( "db", json!({"action":"update", "count_num":diamond,"task_msg":"完成福袋任务，准备下一个任务", "huode_diamond_count":win_diamond, "win_count": win_count, "seq":seq})).unwrap();
+    } else {
+        app.emit( "db", json!({"action":"update","task_msg":"完成福袋任务，准备下一个任务", "huode_diamond_count":win_diamond, "win_count": win_count, "seq":seq})).unwrap();
+    }
 
     println!("user has diamond is: {:?}", diamond);
     //-------------------------------------------------------------

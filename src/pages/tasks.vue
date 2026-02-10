@@ -104,10 +104,12 @@
                                         <el-switch v-model="browserOptions.loop_run"></el-switch>
                                     </el-form-item>
 
+                                    <!--
                                     <el-form-item label="下发次数">
                                         <el-input-number v-model="browserOptions.can_used_times" type="number"
                                             placeholder="下发次数" />
                                     </el-form-item>
+                                -->
 
                                 </el-form>
                             </div>
@@ -228,6 +230,7 @@
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
                                 <p>当前版本: v{{app_version}}</p>
+                                <p>当前可用：{{ allowed_urls }}个</p>
                                 <p>IP: {{ cur_remote_ip }}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
                             </div>
@@ -293,6 +296,7 @@ const showLogDiv = ref(false);
 const fd_count = ref(0);
 const cookiesList = ref([]);
 const cur_remote_ip = ref("");
+const allowed_urls = ref(0);
 
 const showLog = async () => {
     showLogDiv.value = !showLogDiv.value;
@@ -844,10 +848,12 @@ onMounted(async () => {
         allowed_count.value = event.payload.allowed_count;
         fd_count.value = event.payload.fd_count;
         total.value = event.payload.total;
+        if (event.payload.allowed_urls) {
+            allowed_urls.value = event.payload.allowed_urls;
+        }
     });
 
     logListener = listen("log", async (event) => {
-        console.log("log event is: ", event.payload);
         logs.value.push(event.payload);
         scrollToBottom();
     });
@@ -886,7 +892,7 @@ const start_sync_server_data = async () => {
         } catch (e) {
             ElMessage.warning("sync Server Error");
         }
-    }, 5000); 
+    }, 10000); 
 }
 
 const stop_sync_server_data = async () => {

@@ -45,15 +45,12 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let mut state_ = state.lock().unwrap();
             state_.limit_room += 1;
             state_.total += 1;
-            app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+            app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
             return;
         }
     }
 
-    println!(
-        "max time: {:?} use time strict {:?}",
-        max_time, use_time_strict
-    );
+    //println!( "max time: {:?} use time strict {:?}", max_time, use_time_strict);
 
     if gather_type == "hb" {
         let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond);
@@ -66,27 +63,43 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let send_time = info["send_time"].as_u64().unwrap();
             let delay = info["delay"].as_u64().unwrap();
             //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay, "expired_at":send_time + delay});
+            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay,"used_times": 0, "expired_at":send_time + delay});
             let _ = gather::sync_add_one_room(token, value.clone());
             {
+                let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                let mut state_ = state.lock().unwrap();
+
+                let _p = state_.room_list.iter().position(|x| x.room_id == room_id);
+
+                if _p.is_some() {
+                    app.emit("log", "已存的红包信息").unwrap();
+                    return;
+                }
+
                 let now = SystemTime::now();
                 let now_ts = now
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
-                let value_ = value.clone();
-                let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                let mut state_ = state.lock().unwrap();
+                let value_ = crate::RoomUrlList {
+                    room_url: room_url.to_string(),
+                    room_id: room_id.to_string(),
+                    web_rid: web_rid.to_string(),
+                    title: title.to_string(),
+                    tp: "hb".to_string(),
+                    send_time,
+                    used_times: 0,
+                    delay,
+                    expired_at: send_time + delay,
+                };
                 state_.allowed_count += 1;
                 state_.room_list.push(value_);
                 state_.room_list.sort_by(|a, b| {
-                    let ac_ = a["expired_at"].as_u64().unwrap();
-                    let bc_ = b["expired_at"].as_u64().unwrap();
+                    let ac_ = a.expired_at;
+                    let bc_ = b.expired_at;
                     ac_.cmp(&bc_)
                 });
-                state_
-                    .room_list
-                    .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
+                state_.room_list.retain(|x| x.expired_at > now_ts);
                 app.emit("log", "插入红包的信息成功").unwrap();
             }
         } else {
@@ -149,22 +162,39 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 return;
             }
 
-            println!(
-                "prize count {:?} lucky count {:?}, {:?} {:?}",
-                prize_count, lucky_count, delay, candidate_num
-            );
+            //println!( "prize count {:?} lucky count {:?}, {:?} {:?}", prize_count, lucky_count, delay, candidate_num);
 
             //let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay});
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay, "expired_at":send_time + delay});
+            let value = json!({"room_url": room_url,"room_id":room_id ,"type": "fd", "web_rid": web_rid, "title": title, "send_time": send_time, "delay": delay, "used_times":0, "expired_at":send_time + delay});
             let _ = gather::sync_add_one_room(token, value.clone()); //提交服务器
             {
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
+
+                let _p = state_.room_list.iter().position(|p| p.room_id == room_id);
+
+                if _p.is_some() {
+                    app.emit("log", "已存在的直播间!").unwrap();
+                    return;
+                }
+
+                let value_ = crate::RoomUrlList {
+                    room_url: room_url.to_string(),
+                    room_id: room_id.to_string(),
+                    web_rid: web_rid.to_string(),
+                    title: title.to_string(),
+                    tp: "fd".to_string(),
+                    send_time,
+                    used_times: 0,
+                    delay,
+                    expired_at: send_time + delay,
+                };
+
                 state_.fd_count += 1;
-                state_.room_list.push(value);
+                state_.room_list.push(value_);
                 state_.room_list.sort_by(|a, b| {
-                    let ac_ = a["expired_at"].as_u64().unwrap();
-                    let bc_ = b["expired_at"].as_u64().unwrap();
+                    let ac_ = a.expired_at;
+                    let bc_ = b.expired_at;
                     ac_.cmp(&bc_)
                 });
 
@@ -173,22 +203,9 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
-
-                state_
-                    .room_list
-                    .retain(|x| x["expired_at"].as_u64().unwrap() > now_ts);
-
+                state_.room_list.retain(|x| x.expired_at > now_ts);
                 app.emit("log", "插入房间成功!").unwrap();
             }
-
-            /*
-            if x.is_err() {
-                let s = format!("插入房间出错{:?}", x.err().unwrap());
-                app.emit("log", s).unwrap();
-            } else {
-                app.emit("log", "插入房间成功!").unwrap();
-            }
-            */
         } else {
             app.emit("log", format!("福袋解析出错 {:?}", x.err().unwrap()))
                 .unwrap();
@@ -197,12 +214,12 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
         let state_ = state.lock().unwrap();
-        app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count})).unwrap();
+        app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
     }
 
     app.emit("log", format!("线程休眠 {:?} 毫秒", sleep))
         .unwrap();
-    println!("sleep for this thread {:?}", sleep);
+    //println!("sleep for this thread {:?}", sleep);
     std::thread::sleep(std::time::Duration::from_millis(sleep as u64));
 }
 
@@ -301,7 +318,7 @@ impl Job {
             let state = GLOBAL_APP_STATE.get().unwrap().clone();
             let state_ = state.lock().unwrap();
             self.app
-                .emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count}))
+                .emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()}))
                 .unwrap();
         }
 
