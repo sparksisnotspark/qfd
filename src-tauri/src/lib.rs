@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Child};
+use std::{collections::HashMap, process::Child, thread::JoinHandle};
 #[allow(unused)]
 use std::{
     error, thread,
@@ -34,6 +34,8 @@ pub struct AppState {
     pub room_list: Vec<RoomUrlList>,
     pub room_list_used: Vec<RoomUrlList>,
     pub latest_sync_id: u64,
+    pub worker_threads: HashMap<String, JoinHandle<()>>, //抓取线程
+    pub spider_threads: Vec<JoinHandle<()>>, //采集线程
 }
 
 #[derive(Default, Debug, Clone)]
