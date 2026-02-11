@@ -8,6 +8,7 @@ use std::{
 use mac_address::get_mac_address;
 use rand::Rng;
 use serde_json::json;
+use thirtyfour::{error::WebDriverErrorInner, prelude::ElementQueryable};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
@@ -29,11 +30,11 @@ pub struct AppState {
     pub allowed_count: i32,
     pub limit_room: i32, //限制直播间的数量
     pub fd_count: i32,
-    pub chrome_driver_child: HashMap<String, Child>,
-    pub bit_window_list: HashMap<String, String>,
-    pub room_list: Vec<RoomUrlList>,
-    pub room_list_used: Vec<RoomUrlList>,
-    pub latest_sync_id: u64,
+    pub chrome_driver_child: HashMap<String, Child>, //chrome driver进程列表
+    pub bit_window_list: HashMap<String, String>, //比特浏览器列表
+    pub room_list: Vec<RoomUrlList>, //采集的数据列表
+    pub room_list_used: Vec<RoomUrlList>, //使用过的列表
+    pub latest_sync_id: u64, //最后同步的服务器ID
     pub worker_threads: HashMap<String, JoinHandle<()>>, //抓取线程
     pub spider_threads: Vec<JoinHandle<()>>, //采集线程
 }
@@ -376,7 +377,7 @@ async fn automation_run(
         }
 
         tokio::spawn(async move {
-            let driver = bit::start_selenium_chrome(dr.as_str(), http.as_str(), seq.as_str())
+            let driver = bit::start_selenium_chrome(&browser_id.as_str(), dr.as_str(), http.as_str(), seq.as_str())
                 .await
                 .unwrap();
 
@@ -511,6 +512,16 @@ async fn automation_run(
                             MyError::StringError(es) => es,
                             MyError::TauriError => "Tauri Error".to_string(),
                             MyError::WebDriverError(e) => {
+                                match e.as_inner() {
+                                    WebDriverErrorInner::WebDriverTimeout(_) => {
+                                        let _ = driver.quit().await;
+                                        let _ = bit::browser_close(&browser_id.as_str()).await;
+                                        return;
+                                    },
+                                    _ => {
+
+                                    }
+                                }
                                 //重启一下数什么玩意
                                 println!("查看web driver error {:?}", e);
                                 "".to_string()

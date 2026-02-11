@@ -222,6 +222,7 @@ pub async fn browser_close(browser_id: &str) -> Result<(), Error> {
 }
 
 pub async fn start_selenium_chrome(
+    browser_id: &str,
     drive_path: &str,
     debug_addr: &str,
     seq: &str,
@@ -233,8 +234,17 @@ pub async fn start_selenium_chrome(
     let mut caps = DesiredCapabilities::chrome();
     caps.set_debugger_address(&debug_addr).unwrap();
     let server_url = chromedrive_start(drive_path.to_string(), seq).unwrap();
-    sleep(Duration::from_millis(500)).await;
-    let driver = WebDriver::new(server_url, caps).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let driver;
+    let res = WebDriver::new(server_url.clone(), caps.clone()).await;
+    if res.is_err() {
+        browser_close(browser_id).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let res = WebDriver::new(server_url.clone(), caps.clone()).await;
+        driver = res.unwrap();
+    } else {
+        driver = res.unwrap();
+    }
     Some(driver)
 }
 
