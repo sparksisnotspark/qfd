@@ -28,17 +28,14 @@ html body {
 </style>
 <script>
 import { listen } from "@tauri-apps/api/event";
-import { appWindow} from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ElMessage } from "element-plus";
 import { onMounted } from "vue";
 
-appWindow.onCloseRequested((event) => {
-    event.preventDefault();
-    const confirmed = confirm("确认关闭？");
-    if (confirmed) {
-        ElMessage.success("Close Now!");
-        appWindow.close();
-    }
+const appWindow = getCurrentWindow();
+appWindow.listen('tauri://close-requested', async(event) => {
+    ElMessage.success("cccclose");
+    await appWindow.close();
 });
 onMounted(async () => {
     const unlisten = await listen("error", (event) => {

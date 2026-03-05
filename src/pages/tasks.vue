@@ -17,11 +17,12 @@
                         <el-button type="info" @click="onSubmit">重置</el-button>
                         <el-button type="danger" @click="delete_select_data">删除</el-button>
                         <el-button type="success" @click="restart_windows">重启</el-button>
-                        <el-checkbox v-model="auto_refresh" style="margin-left: 20px" @change="autoRefreshChange">自动刷新</el-checkbox>
+                        <el-checkbox v-model="auto_refresh" style="margin-left: 20px"
+                            @change="autoRefreshChange">自动刷新</el-checkbox>
                     </el-form-item>
                 </el-form>
-                <el-table :data="userHistory" size="small" style="width: 100%" max-height="800" min-height="700" @selection-change="handle_select_change" border show-summary
-                    :summary-method="sumHistory">
+                <el-table :data="userHistory" size="small" style="width: 100%" max-height="800" min-height="700"
+                    @selection-change="handle_select_change" border show-summary :summary-method="sumHistory">
                     <el-table-column type="selection" width="50" align="center" label="#" />
                     <el-table-column prop="seq" label="C#" align="center" width="50" show-overflow-tooltip />
                     <el-table-column prop="dy_name" label="抖音名称" width="80" align="center" show-overflow-tooltip />
@@ -67,7 +68,7 @@
                                 <el-form :disabled="groupSelectFormDisabled">
                                     <el-checkbox-group v-model="groupSelection">
                                         <el-checkbox v-for="group in groups" :key="group" :value="group[0]">{{ group[1]
-                                            }}</el-checkbox>
+                                        }}</el-checkbox>
                                     </el-checkbox-group>
                                 </el-form>
                             </div>
@@ -89,7 +90,6 @@
                                         <el-input-number style="width: 100px" v-model="browserOptions.thread_number
                                             " :min="1" :max="50" placeholder="线程数量" type="number"></el-input-number>
                                     </el-form-item>
-                                    -->
 
                                     <el-form-item label="二次奖概率">
                                         <el-input-number v-model="browserOptions.second_prize_rate
@@ -100,12 +100,13 @@
                                         <el-switch v-model="browserOptions.enable_second_check
                                             "></el-switch>
                                     </el-form-item>
+                                    -->
                                     <el-form-item label="循环运行">
                                         <el-switch v-model="browserOptions.loop_run"></el-switch>
                                     </el-form-item>
 
                                     <el-form-item label="下发次数">
-                                        <el-input-number v-model="browserOptions.can_used_times" type="number"
+                                        <el-input-number v-model="browserOptions.can_used_times" :min="1" :max="20" type="number"
                                             placeholder="下发次数" />
                                     </el-form-item>
 
@@ -141,7 +142,7 @@
                                     </el-form-item>
                                     <el-form-item label="人数限制">
                                         <el-input-number v-model="spiderOptions.people_limit" style="width: 100px"
-                                            :min="1" :max="9999" placeholder="人数限制" type="number"></el-input-number>
+                                            :min="1" placeholder="人数限制" :step="10" type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="最小时间">
                                         <el-input-number style="width: 120px" v-model="spiderOptions.min_time" :min="1"
@@ -166,6 +167,16 @@
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
                                             placeholder="福袋人均钻石" v-model="spiderOptions.fd_min_avg_diamond
                                                 "></el-input-number>
+                                    </el-form-item>
+                                    <el-form-item label="最低包数">
+                                        <el-input-number style="width: 100px" :min="1" :max="100" type="number"
+                                            placeholder="最低包的个数" v-model="spiderOptions.min_packet_number">
+                                        </el-input-number>
+                                    </el-form-item>
+                                    <el-form-item label="最低钻石">
+                                        <el-input-number style="width: 100px" :min="1" :max="100" type="number"
+                                            placeholder="最低钻石数" v-model="spiderOptions.min_diamond">
+                                        </el-input-number>
                                     </el-form-item>
 
                                     <el-form-item label="只采集大包">
@@ -227,10 +238,10 @@
                                 <p>总房间数: {{ total }}</p>
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
-                                <p>当前版本: v{{app_version}}</p>
-                                <p>当前可用：{{ allowed_urls }}个</p>
+                                <p>当前版本: v{{ app_version }}</p>
                                 <p>IP: {{ cur_remote_ip }}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
+                                <el-button link @click="testAutoRun">測試自動</el-button>
                             </div>
                         </div>
                     </el-aside>
@@ -242,7 +253,7 @@
             <el-form :model="cookiesForm" label-width="100" size="small" inline ref="cookieFormRef"
                 style="width: 500px">
                 <el-form-item prop="cookie">
-                    <el-input v-model="cookiesForm.cookie" placeholder="输入广场cookie" clearable></el-input>
+                    <el-input v-model="cookiesForm.cookie"  placeholder="输入广场cookie" clearable></el-input>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="saveCookieHandle" :loading="saveCookieLoading">保存</el-button>
@@ -280,7 +291,7 @@ import { useRouter } from "vue-router";
 import { getDb } from "../db";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher, init_sqlite_db, check_record_exists, clean_task_name, getAppVersion, delete_data } from "../api";
+import { db_action_dispatcher, init_sqlite_db, clean_task_name, getAppVersion, delete_data } from "../api";
 
 const max_length = 50;
 const logs = ref([]);
@@ -438,7 +449,7 @@ let browserOptions = reactive({
     second_prize_rate: 0, //二次中奖概率
     enable_second_check: false, //启用二次检查
     loop_run: false, //循环运行
-    can_used_times: 2,
+    can_used_times: 1,
 });
 
 let spiderOptions = reactive({
@@ -455,6 +466,8 @@ let spiderOptions = reactive({
     min_avg_diamond: 2, //红包
     fd_min_avg_diamond: 10,
     ip_fetch_url: "", //IP获取链接
+    min_diamond: 2, //最低钻石数
+    min_packet_number: 2,
 });
 
 let windowOptions = reactive({
@@ -512,6 +525,7 @@ const re_start_automation = async () => {
                         use_time_strict: spiderOptions.use_time_strict,
                         join_fans_group: spiderOptions.join_fans_group,
                         can_used_times: browserOptions.can_used_times,
+                        min_packet_number: spiderOptions.min_packet_number,
                     }),
                 });
                 console.log("重新启动未成功窗口结果:", res);
@@ -557,6 +571,7 @@ const startAutomation = async () => {
                         use_time_strict: spiderOptions.use_time_strict,
                         join_fans_group: spiderOptions.join_fans_group,
                         can_used_times: browserOptions.can_used_times,
+                        min_packet_number: spiderOptions.min_packet_number,
                     }),
                 });
                 ElMessage.success("自动化运行已启动");
@@ -649,6 +664,22 @@ const stopAutomation = async () => {
         },
     );
 };
+
+
+const testAutoRun = async () => {
+    try {
+        let res = await invoke("test_auto_run", { params: JSON.stringify({
+            id: "f5c4cfd7eb924a77b35eeb3cbb1cdd9c",
+            seq: 18,
+        }) });
+        console.log("test auto run result is: ", res);
+        ElMessage.success("自动运行测试成功");
+    } catch (e) {
+        console.log("error for this is: ", e);
+        ElMessage.error("自动运行测试失败");
+        return;
+    }
+}
 
 const searchHandler = async () => {
     let create_at = searchOptions.create_at;
@@ -777,10 +808,9 @@ let init_db = async () => {
 
 const check_token_expired = async () => {
     try {
-        let res = await invoke("check_token_expired", { });
+        let res = await invoke("check_token_expired", {});
         console.log("res of the best is: ", res);
-    } catch(e)
-    {
+    } catch (e) {
         console.log("exception of this:", e);
     }
 }
@@ -814,7 +844,7 @@ let dbListener = null;
 let spiderListener = null;
 let logListener = null;
 
-const autoRefreshChange = async ( val ) => {
+const autoRefreshChange = async (val) => {
     if (val) {
         intervalId = setInterval(async () => {
             await searchHandler();
@@ -860,19 +890,41 @@ onMounted(async () => {
         await db_action_dispatcher(event);
     });
 
-    window.addEventListener("beforeunload", (e) => {
-        e.preventDefault();
-        ElMessageBox.confirm("确定要退出程序吗？", "确认", { type: "warning" }).then(() => {
-            store.logout().then(() => {
-                console.log("logout success");
-            })
-        }).catch(() => {
-            console.log("Got Some Error");
-        });
-        e.returnValue = "";
+    listen("restart", async (event) => {
+        console.log("restart event payload is: ", event);
+        ElMessage.warning(`窗口${event.payload.seq}异常，正在重启...${JSON.stringify(event.payload)}`);
+        await restart_dead_windows(event.payload);
     });
-
 });
+
+const restart_dead_windows = async (params) => {
+    console.log("restart windows params is: ", params);
+    try {
+        let res = await invoke("restart_error_handler", {
+            seq: params.seq, browserId: params.id, params: JSON.stringify({
+                group_id: groupSelection.value,
+                thread_number: browserOptions.thread_number,
+                up_limit: browserOptions.up_limit,
+                second_prize_rate: browserOptions.second_prize_rate,
+                enable_second_check: browserOptions.enable_second_check,
+                loop_run: browserOptions.loop_run,
+                spider_options: spiderOptions,
+                tp: browserOptions.tp,
+                max_time: spiderOptions.max_time,
+                min_time: spiderOptions.min_time,
+                use_time_strict: spiderOptions.use_time_strict,
+                join_fans_group: spiderOptions.join_fans_group,
+                can_used_times: browserOptions.can_used_times,
+                min_packet_number: spiderOptions.min_packet_number,
+            })
+        });
+        console.log("restart result is: ", res);
+        ElMessage.success(`restart ${params.seq} windows success!`);
+    } catch (e) {
+        console.log("error for restart windows: ", e);
+        ElMessage.error(`restart ${params.seq} windows failure!`)
+    }
+}
 
 const multiple_windows_select = ref([]);
 
@@ -885,22 +937,22 @@ let server_interval = null;
 const start_sync_server_data = async () => {
     server_interval = setInterval(async () => {
         try {
-            let _ = await invoke("sync_server_room", {"tp":browserOptions.tp});
+            let _ = await invoke("sync_server_room", { "tp": browserOptions.tp });
         } catch (e) {
             ElMessage.warning("同步服务器数据失败!" + e);
         }
-    }, 5000); 
+    }, 5000);
 }
 
 const stop_sync_server_data = async () => {
-    if(server_interval) {
-        clearInterval(server_interval); 
+    if (server_interval) {
+        clearInterval(server_interval);
     }
     ElMessage.success("stop sync server sucess!")
 }
 
 const restart_windows = async () => {
-    if(multiple_windows_select.value.length <= 0) {
+    if (multiple_windows_select.value.length <= 0) {
         ElMessage.warning("请选择要重启的窗口");
         return;
     }
@@ -909,10 +961,10 @@ const restart_windows = async () => {
         seqs.push(x.seq);
     });
 
-    ElMessageBox.confirm("确定重启选中的么？").then(async() => {
+    ElMessageBox.confirm("确定重启选中的么？").then(async () => {
         try {
             let res = await invoke("restart_window", {
-              params: JSON.stringify({
+                params: JSON.stringify({
                     group_id: groupSelection.value,
                     thread_number: browserOptions.thread_number,
                     up_limit: browserOptions.up_limit,
@@ -927,9 +979,9 @@ const restart_windows = async () => {
                     can_used_times: browserOptions.can_used_times,
                     seqs: seqs,
                 })
-           });
-           ElMessage.success(`${res} 重记成功`)
-        }catch(e) {
+            });
+            ElMessage.success(`${res} 重记成功`)
+        } catch (e) {
             ElMessage.warning(`${e} 重记失败`);
         }
     }, (r) => {
@@ -938,11 +990,11 @@ const restart_windows = async () => {
 }
 
 const delete_select_data = async () => {
-    if(multiple_windows_select.value.length <= 0) {
+    if (multiple_windows_select.value.length <= 0) {
         ElMessage.warning("请先选择要删除的数据");
         return;
     }
-    ElMessageBox.confirm("确定删除选定的数据？").then(async ()=> {
+    ElMessageBox.confirm("确定删除选定的数据？").then(async () => {
         let ids = [];
         multiple_windows_select.value.forEach((x) => {
             console.log("delete select data is:", x, x.id, x.seq);
@@ -959,18 +1011,18 @@ onUnmounted(() => {
     if (intervalId) {
         clearInterval(intervalId);
     }
-    if(spiderListener) {
+    if (spiderListener) {
         spiderListener.then((unlisten) => {
             unlisten();
         });
     }
-    if(logListener) {
+    if (logListener) {
         logListener.then((unlisten) => {
             unlisten();
         });
     }
 
-    if(dbListener) {
+    if (dbListener) {
         dbListener.then((unlisten) => {
             unlisten();
         });
@@ -999,7 +1051,7 @@ const window_bounds = async () => {
     }
 };
 
-const saveSettings = async () => { 
+const saveSettings = async () => {
     await saveDefaultParams();
 };
 

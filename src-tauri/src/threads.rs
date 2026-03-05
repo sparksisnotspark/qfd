@@ -39,6 +39,9 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
     let max_time = options["max_time"].as_u64().unwrap(); //时间区间，表示最多等多久
     let use_time_strict = options["use_time_strict"].as_bool().unwrap_or(false);
     let display_value = payload["display_value"].as_u64().unwrap();
+    let min_packet_number = options["min_packet_number"].as_u64().unwrap_or(1);
+    let min_diamond = options["min_diamond"].as_u64().unwrap_or(0);
+
     if people_limit < display_value {
         {
             let state: Arc<Mutex<crate::AppState>> = GLOBAL_APP_STATE.get().unwrap().clone();
@@ -53,7 +56,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
     //println!( "max time: {:?} use time strict {:?}", max_time, use_time_strict);
 
     if gather_type == "hb" {
-        let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond);
+        let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond, min_diamond);
         if x.is_ok() {
             let info = x.unwrap();
             let room_url = info["room_url"].as_str().unwrap();
@@ -62,28 +65,53 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let title = info["title"].as_str().unwrap();
             let send_time = info["send_time"].as_u64().unwrap();
             let delay = info["delay"].as_u64().unwrap();
-            //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
-            let expired_at = send_time + delay;
-            let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay,"used_times": 0, "expired_at": expired_at});
-            let _ = gather::sync_add_one_room(token, value.clone());
-            {
+            let pack_count = info["pack_count"].as_u64().unwrap();
+
+            if pack_count < min_packet_number {
+                //最小發包數量小於設定的最小值，則跳過
+                app.emit(
+                    "log",
+                    format!(
+                        "红包的发包数量 {:?} 小于设定的最小包数量 {:?}，放弃这个红包",
+                        pack_count, min_packet_number
+                    ),
+                )
+                .unwrap();
                 let state = GLOBAL_APP_STATE.get().unwrap().clone();
                 let mut state_ = state.lock().unwrap();
+                state_.limit_room += 1;
+                return;
+            }
 
-                let _p = state_.room_list.iter().position(|x| x.room_id == room_id);
-
-                if _p.is_some() {
-                    app.emit("log", "已存的红包信息").unwrap();
-                    return;
+            //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay});
+            let expired_at = send_time + delay;
+            //let value = json!({"room_url": room_url,"room_id":room_id ,"type":"hb", "web_rid":web_rid, "title":title, "send_time":send_time, "delay": delay,"used_times": 0, "expired_at": expired_at});
+            //let _ = gather::sync_add_one_room(token, value.clone());
+            {
+                {
+                    let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                    let state_ = state.lock();
+                    if state_.is_ok() {
+                        let state_ = state_.unwrap();
+                        let _p = state_.room_list.iter().position(|x| x.room_id == room_id);
+                        if _p.is_some() {
+                            app.emit("log", "已存的红包信息").unwrap();
+                            return;
+                        }
+                    }
                 }
-
                 let now = SystemTime::now();
                 let now_ts = now
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
 
-                let wait_for_ts = expired_at - now_ts;
+                if expired_at < now_ts {
+                    app.emit("log", "红包已经过期了").unwrap();
+                    return;
+                }
+
+                let wait_for_ts= expired_at - now_ts;
                 if wait_for_ts < min_time || wait_for_ts > max_time {
                     app.emit("log", "时间不在区间内").unwrap();
                     return;
@@ -100,15 +128,23 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                     delay,
                     expired_at: expired_at,
                 };
-                state_.allowed_count += 1;
-                state_.room_list.push(value_);
-                state_.room_list.sort_by(|a, b| {
-                    let ac_ = a.expired_at;
-                    let bc_ = b.expired_at;
-                    ac_.cmp(&bc_)
-                });
-                state_.room_list.retain(|x| x.expired_at > now_ts);
-                app.emit("log", "插入红包的信息成功").unwrap();
+                {
+                    let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                    let state_ = state.lock();
+
+                    if state_.is_ok() {
+                        let mut state_ = state_.unwrap();
+                        state_.allowed_count += 1;
+                        state_.room_list.push(value_);
+                        state_.room_list.sort_by(|a, b| {
+                            let ac_ = a.expired_at;
+                            let bc_ = b.expired_at;
+                            ac_.cmp(&bc_)
+                        });
+                        state_.room_list.retain(|x| x.expired_at > now_ts);
+                        app.emit("log", "插入红包的信息成功").unwrap();
+                    }
+                }
             }
         } else {
             app.emit("log", format!("解析红包信息出错  {:?}", x.err().unwrap()))
@@ -124,6 +160,7 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             people_limit,
             winning_ratio,
             fd_min_avg_diamond,
+            min_diamond,
         ); //逻辑放到了添加福袋的里面去了
         if x.is_ok() {
             let info = x.unwrap();
@@ -136,7 +173,6 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
             let room_id = info["room_id"].as_str().unwrap();
             let title = info["title"].as_str().unwrap();
             let web_rid = info["web_rid"].as_str().unwrap();
-            let candidate_num = info["candidate_num"].as_u64().unwrap();
 
             let now = SystemTime::now();
             let now_ts = now
@@ -164,9 +200,35 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                     )
                     .unwrap();
                 }
-                let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                let mut state_ = state.lock().unwrap();
-                state_.limit_room += 1;
+                {
+                    let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                    let state_ = state.lock();
+                    if state_.is_ok() {
+                        let mut state_ = state_.unwrap();
+                        state_.limit_room += 1;
+                    }
+                }
+                return;
+            }
+
+            if lucky_count < min_packet_number {
+                //最小發包數量小於設定的最小值，則跳過
+                app.emit(
+                    "log",
+                    format!(
+                        "福袋的已中奖人数 {:?} 小于设定的最小包数量 {:?}，放弃这个福袋",
+                        lucky_count, min_packet_number
+                    ),
+                )
+                .unwrap();
+                {
+                    let state = GLOBAL_APP_STATE.get().unwrap().clone();
+                    let state_ = state.lock();
+                    if state_.is_ok() {
+                        let mut state_ = state_.unwrap();
+                        state_.limit_room += 1;
+                    }
+                }
                 return;
             }
 
@@ -219,11 +281,6 @@ pub fn execute_gather(payload: serde_json::Value, app: &AppHandle) {
                 .unwrap();
         }
     }
-    {
-        let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let state_ = state.lock().unwrap();
-        app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
-    }
 
     app.emit("log", format!("线程休眠 {:?} 毫秒", sleep))
         .unwrap();
@@ -252,11 +309,12 @@ impl Job {
         let only_big_packet = options["only_big_packet"].as_bool().unwrap();
         let min_avg_diamond = options["min_avg_diamond"].as_u64().or(Some(1)).unwrap(); //红包
         let fd_min_avg_diamond = options["fd_min_avg_diamond"].as_u64().or(Some(10)).unwrap();
+        let min_diamond = options["min_diamond"].as_u64().unwrap_or(0);
 
-        println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?} only big packet {:?} min avg diamond {:?}", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond);
+        println!("winning_ratio: {:?} people_limit {:?} join_fans_group {:?} only big packet {:?} min avg diamond {:?} min diamond {:?}", winning_ratio, people_limit, join_fans_group, only_big_packet, min_avg_diamond, min_diamond);
 
         if gather_type == "hb" {
-            let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond);
+            let x = gather::parse_luckbox_info(room_id, web_rid, cookie, min_avg_diamond, min_diamond);
             if x.is_ok() {
                 let info = x.unwrap();
                 let room_url = info["room_url"].as_str().unwrap();
@@ -289,6 +347,7 @@ impl Job {
                 people_limit,
                 winning_ratio,
                 fd_min_avg_diamond,
+                min_diamond
             ); //逻辑放到了添加福袋的里面去了
             if x.is_ok() {
                 let info = x.unwrap();

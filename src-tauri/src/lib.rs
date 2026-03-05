@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Child, thread::JoinHandle};
+use std::{collections::HashMap, process::Child};
 #[allow(unused)]
 use std::{
     error, thread,
@@ -8,12 +8,12 @@ use std::{
 use mac_address::get_mac_address;
 use rand::Rng;
 use serde_json::json;
-use thirtyfour::{error::WebDriverErrorInner, prelude::ElementQueryable};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_store::StoreExt;
+use thirtyfour::error::WebDriverErrorInner;
 
 use crate::bit::MyError;
 
@@ -31,12 +31,13 @@ pub struct AppState {
     pub limit_room: i32, //限制直播间的数量
     pub fd_count: i32,
     pub chrome_driver_child: HashMap<String, Child>, //chrome driver进程列表
-    pub bit_window_list: HashMap<String, String>, //比特浏览器列表
-    pub room_list: Vec<RoomUrlList>, //采集的数据列表
-    pub room_list_used: Vec<RoomUrlList>, //使用过的列表
-    pub latest_sync_id: u64, //最后同步的服务器ID
-    pub worker_threads: HashMap<String, JoinHandle<()>>, //抓取线程
-    pub spider_threads: Vec<JoinHandle<()>>, //采集线程
+    pub bit_window_list: HashMap<String, String>,    //比特浏览器列表
+    pub room_list: Vec<RoomUrlList>,                 //采集的数据列表
+    pub room_list_used: Vec<RoomUrlList>,            //使用过的列表
+    pub latest_sync_id: u64,                         //最后同步的服务器ID
+    pub worker_threads: HashMap<String, tokio::task::JoinHandle<()>>, //抓取线程
+    pub seq_dead_times: HashMap<String, u64>,        //窗口死掉的次数
+    pub seq_restdart_times: HashMap<String, u64>,    //窗口重啟次數
 }
 
 #[derive(Default, Debug, Clone)]
@@ -56,6 +57,7 @@ static GLOBAL_APP_STATE: OnceLock<Arc<Mutex<AppState>>> = OnceLock::new();
 const APP_STORE_NAME: &str = "app.json";
 const ACT_UPDATE: &str = "update";
 const ACT_NAME: &str = "action";
+const EVT_RESTART: &str = "restart";
 
 #[tauri::command]
 async fn window_bounds(p: serde_json::Value) -> Result<String, tauri::Error> {
@@ -85,8 +87,12 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
     let id_synced;
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let state_ = state.lock().unwrap();
-        id_synced = state_.latest_sync_id;
+        let state_ = state.lock();
+        if state_.is_err() {
+            return Err("获取状态失败".to_string());
+        } else {
+            id_synced = state_.unwrap().latest_sync_id;
+        }
     }
     let store = app.app_handle().store("app.json").unwrap();
     let token = store
@@ -131,7 +137,8 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
                     expired_at,
                 };
                 let _p = state_.room_list.iter().position(|p| p.room_id == room_id);
-                if _p.is_some() { //过滤掉已存在的数据
+                if _p.is_some() {
+                    //过滤掉已存在的数据
                     continue;
                 }
                 state_.room_list.push(value);
@@ -150,10 +157,10 @@ async fn sync_server_room(app: AppHandle, tp: &str) -> Result<(), String> {
             if data.len() > 0 {
                 //获取最后一条数据的ID
                 let len = data.len();
-                state_.latest_sync_id = data[len-1]["id"].as_u64().unwrap();
+                state_.latest_sync_id = data[len - 1]["id"].as_u64().unwrap();
             }
 
-            app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
+            app.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len()})).unwrap();
         }
     } else {
         return Err("同步失败".to_string());
@@ -190,6 +197,13 @@ async fn bit_group_browsers(id: &str) -> Result<Vec<serde_json::Value>, tauri::E
 }
 
 #[tauri::command]
+async fn test_auto_run(app: AppHandle, params: String) -> Result<(), String> {
+    let payload = serde_json::from_str::<serde_json::Value>(&params).expect("parase json error");
+    app.emit(EVT_RESTART, payload).unwrap();
+    Ok(())
+}
+
+#[tauri::command]
 async fn browser_windows_open(browser_id: &str) -> Result<(), tauri::Error> {
     let res = bit::browser_open(browser_id).await.unwrap();
     println!("res is: {:?}", res);
@@ -198,7 +212,8 @@ async fn browser_windows_open(browser_id: &str) -> Result<(), tauri::Error> {
 
 #[tauri::command]
 async fn restart_window(app: AppHandle, params: String) -> Result<(), String> {
-    let options = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
+    let options: serde_json::Value =
+        serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
     let seqs = options["seqs"].as_array().unwrap();
     let group_ids = options["group_id"].as_array().unwrap();
     let group_id;
@@ -239,11 +254,18 @@ async fn restart_window(app: AppHandle, params: String) -> Result<(), String> {
                 child.kill().unwrap();
                 child.wait().unwrap();
             }
+
+            //停止對應的線程
+            if let Some(x) = state_.worker_threads.get_mut(&seq_.to_string()) {
+                x.abort();
+            }
         }
     }
     for w in &wait_for {
         let _ = bit::browser_close(w["id"].as_str().unwrap()).await;
+        tokio::time::sleep(Duration::from_millis(400)).await;
     }
+    tokio::time::sleep(Duration::from_secs(3)).await;
     return automation_run(app, wait_for, options).await;
 }
 
@@ -325,6 +347,81 @@ async fn re_start_automation(app: AppHandle, params: String) -> Result<(), Strin
     return automation_run(app, wait_for, json).await;
 }
 
+async fn get_browser_dead_times(seq: &str) -> u64 {
+    let times: u64;
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let state_ = state.lock().unwrap();
+        let t = state_.seq_dead_times.get(&seq.to_string());
+        if t.is_some() {
+            times = *t.unwrap();
+        } else {
+            times = 0 as u64;
+        }
+    }
+    times
+}
+
+async fn set_browser_dead_times(seq: &str) -> Result<(), String> {
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let mut state_ = state.lock().unwrap();
+        let t = state_.seq_dead_times.get_mut(&seq.to_string());
+        if t.is_some() {
+            let x = t.unwrap();
+            *x = *x + 1;
+        } else {
+            state_.seq_dead_times.insert(seq.to_string(), 1);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn restart_error_handler(
+    app: AppHandle,
+    browser_id: &str,
+    seq: u64,
+    params: String,
+) -> Result<(), String> {
+    //重新启动死掉的窗口
+    //停止自动化任务执行的线程任务
+    {
+        let state = GLOBAL_APP_STATE.get().unwrap().clone();
+        let mut state_ = state.lock().unwrap();
+        let task_handler = state_.worker_threads.get_mut(&seq.to_string());
+        if task_handler.is_some() {
+            task_handler.unwrap().abort();
+        }
+
+        let child = state_.chrome_driver_child.get_mut(&seq.to_string());
+        if child.is_some() {
+            let child = child.unwrap();
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+
+        let dead_times = state_.seq_dead_times.get_mut(&seq.to_string());
+        if dead_times.is_some() {
+            let m = dead_times.unwrap();
+            *m = 0;
+        }
+        let restart_times = state_.seq_restdart_times.get_mut(&seq.to_string());
+        if restart_times.is_some() {
+            let m = restart_times.unwrap();
+            *m = *m + 1;
+        }
+    }
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let _ = bit::browser_close(browser_id).await; //關閉瀏覽器
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let options = serde_json::from_str::<serde_json::Value>(&params).expect("parse json error");
+    let mut wait_for = vec![];
+    wait_for.push(json!({"id":browser_id, "seq":seq}));
+    return automation_run(app, wait_for, options).await;
+}
+
 async fn automation_run(
     app: AppHandle,
     windows: Vec<serde_json::Value>,
@@ -335,6 +432,7 @@ async fn automation_run(
     let max_time = json["max_time"].as_u64().unwrap();
     let use_time_strict = json["use_time_strict"].as_bool().unwrap_or(false);
     let can_used_times = json["can_used_times"].as_u64().unwrap();
+
     let gather_type = json["tp"].as_str().unwrap().to_string();
     let store = app.app_handle().store("app.json").unwrap();
     let token = store
@@ -350,9 +448,12 @@ async fn automation_run(
     let task_name = action_map[gather_type.as_str()].to_string();
     for win in windows {
         let browser_id = win["id"].as_str().unwrap().to_string();
-        let seq = win["seq"].as_u64().unwrap().to_string();
+        let seq_u64 = win["seq"].as_u64().unwrap();
+        let seq = seq_u64.to_string();
+
+        println!("browser_id is: {:?} seq is: {:?}", browser_id, seq);
         let res = bit::browser_open(browser_id.as_str()).await.unwrap();
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
         let success = res["success"].as_bool().unwrap();
         if success == false {
             return Err(format!(
@@ -375,14 +476,20 @@ async fn automation_run(
             let seq_ = seq.clone();
             state_.bit_window_list.insert(bid_, seq_);
         }
+        let seq_clone_ = seq.clone();
 
-        tokio::spawn(async move {
-            let driver = bit::start_selenium_chrome(&browser_id.as_str(), dr.as_str(), http.as_str(), seq.as_str())
-                .await
-                .unwrap();
+        let task_handler = tokio::spawn(async move {
+            let driver = bit::start_selenium_chrome(
+                &browser_id.as_str(),
+                dr.as_str(),
+                http.as_str(),
+                seq.as_str(),
+            )
+            .await
+            .unwrap();
 
             app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"等待70秒全部窗口开启", "seq":seq})).unwrap();
-            tokio::time::sleep(Duration::from_secs(70)).await; //
+            tokio::time::sleep(Duration::from_secs(40)).await; //
             let r = bit::parse_user_info(&driver).await;
             app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"检查登陆", "seq":seq})).unwrap();
             if r.is_err() {
@@ -390,12 +497,12 @@ async fn automation_run(
                 println!("解析人物出错 {:?}", e);
                 app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"或需要重新陆", "seq":seq})).unwrap();
                 bit::browser_close(browser_id.as_str()).await.unwrap();
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                tokio::time::sleep(Duration::from_millis(400)).await;
                 driver.quit().await.unwrap();
                 return ();
             }
             app.emit("db", json!({ACT_NAME:ACT_UPDATE, "task_name":task_name, "task_msg":"等待80信息解析出来", "seq":seq})).unwrap();
-            tokio::time::sleep(Duration::from_secs(70)).await; //等2分钟再开dd
+            tokio::time::sleep(Duration::from_secs(40)).await; //等2分钟再开dd
             let rr = r.unwrap();
             let dy_name = rr.0;
             let dy_account: Vec<&str> = rr.1.as_str().split('：').collect();
@@ -407,8 +514,13 @@ async fn automation_run(
 
             loop {
                 let running = {
-                    let s = state_clone.lock().unwrap();
-                    s.is_automation_running
+                    let s = state_clone.lock();
+                    if s.is_err() {
+                        true
+                    } else {
+                        let s = s.unwrap();
+                        s.is_automation_running
+                    }
                 };
 
                 if running == false {
@@ -511,21 +623,54 @@ async fn automation_run(
                         let s = match err {
                             MyError::StringError(es) => es,
                             MyError::TauriError => "Tauri Error".to_string(),
-                            MyError::WebDriverError(e) => {
-                                match e.as_inner() {
-                                    WebDriverErrorInner::WebDriverTimeout(_) => {
-                                        let _ = driver.quit().await;
-                                        let _ = bit::browser_close(&browser_id.as_str()).await;
-                                        return;
-                                    },
-                                    _ => {
-
-                                    }
+                            MyError::UrlLoadingError => {
+                                let times = get_browser_dead_times(seq.as_str()).await;
+                                println!("times is for url loading error: {:?}", times);
+                                if times > 3 {
+                                    app.emit(EVT_RESTART, json!({"id":browser_id, "seq":seq_u64}))
+                                        .unwrap();
+                                    let _ = set_browser_dead_times(seq.as_str()).await;
+                                    return;
                                 }
-                                //重启一下数什么玩意
-                                println!("查看web driver error {:?}", e);
+                                let _ = set_browser_dead_times(seq.as_str()).await;
                                 "".to_string()
                             }
+                            MyError::WebDriverError(e) => match e.as_inner() {
+                                WebDriverErrorInner::WebDriverTimeout(_) => {
+                                    let _ = driver.quit().await;
+                                    let _ = bit::browser_close(&browser_id.as_str()).await;
+                                    let times = get_browser_dead_times(seq.as_str()).await;
+                                    println!("times is fro webdriver error: {:?}", times);
+                                    if times > 3 {
+                                        app.emit(
+                                            EVT_RESTART,
+                                            json!({"id":browser_id, "seq":seq_u64}),
+                                        )
+                                        .unwrap();
+                                    }
+                                    let _ = set_browser_dead_times(seq.as_str()).await;
+                                    return;
+                                }
+                                WebDriverErrorInner::UnknownResponse(..) => {
+                                    let _ = driver.quit().await;
+                                    let _ = bit::browser_close(&browser_id.as_str()).await;
+                                    let times = get_browser_dead_times(seq.as_str()).await;
+                                    println!("times is for unknown response: {:?}", times);
+                                    if times > 3 {
+                                        app.emit(
+                                            EVT_RESTART,
+                                            json!({"id":browser_id, "seq":seq_u64}),
+                                        )
+                                        .unwrap();
+                                    }
+                                    let _ = set_browser_dead_times(seq.as_str()).await;
+                                    return;
+                                }
+
+                                _ => {
+                                    format!("E: {:?}", e)
+                                }
+                            },
                             MyError::RequestError(e) => format!("{:?}", e).to_string(),
                             MyError::SerdeError(e) => format!("{:?}", e).to_string(),
                         };
@@ -540,7 +685,51 @@ async fn automation_run(
                         let s = match err_str {
                             MyError::StringError(es) => es,
                             MyError::TauriError => "Tauri Error".to_string(),
-                            MyError::WebDriverError(e) => format!("{:?}", e).to_string(),
+                            MyError::UrlLoadingError => {
+                                let times = get_browser_dead_times(seq.as_str()).await;
+                                if times > 3 {
+                                    app.emit(EVT_RESTART, json!({"id":browser_id, "seq":seq_u64}))
+                                        .unwrap();
+                                    let _ = set_browser_dead_times(seq.as_str()).await;
+                                    return;
+                                }
+                                let _ = set_browser_dead_times(seq.as_str()).await;
+                                "加载直播間錯誤".to_string()
+                            }
+
+                            MyError::WebDriverError(e) => match e.as_inner() {
+                                WebDriverErrorInner::WebDriverTimeout(_) => {
+                                    let times = get_browser_dead_times(seq.as_str()).await;
+                                    if times > 3 {
+                                        let _ = driver.quit().await;
+                                        let _ = bit::browser_close(&browser_id.as_str()).await;
+                                        app.emit(
+                                            EVT_RESTART,
+                                            json!({"id":browser_id, "seq":seq_u64}),
+                                        )
+                                        .unwrap();
+                                    }
+                                    let _ = set_browser_dead_times(seq.as_str()).await;
+                                    return;
+                                }
+                                WebDriverErrorInner::UnknownResponse(..) => {
+                                    let _ = driver.quit().await;
+                                    let _ = bit::browser_close(&browser_id.as_str()).await;
+                                    let times = get_browser_dead_times(seq.as_str()).await;
+                                    if times > 3 {
+                                        app.emit(
+                                            EVT_RESTART,
+                                            json!({"id":browser_id, "seq":seq_u64}),
+                                        )
+                                        .unwrap();
+                                    }
+                                    let _ = set_browser_dead_times(seq.as_str()).await;
+                                    return;
+                                }
+                                _ => {
+                                    format!("E: {:?}", e)
+                                }
+                            },
                             MyError::RequestError(e) => format!("{:?}", e).to_string(),
                             MyError::SerdeError(e) => format!("{:?}", e).to_string(),
                         };
@@ -558,6 +747,11 @@ async fn automation_run(
                 ()
             }
         });
+        {
+            let state = GLOBAL_APP_STATE.get().unwrap().clone();
+            let mut state_ = state.lock().unwrap();
+            state_.worker_threads.insert(seq_clone_, task_handler);
+        }
     }
     Ok(())
 }
@@ -574,6 +768,10 @@ async fn stop_automation() -> Result<(), tauri::Error> {
             v.wait().unwrap();
         }
         state_.bit_window_list.clear();
+
+        for (_, c) in state_.worker_threads.iter() {
+            c.abort();
+        }
     }
     let _ = tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     let _ = bit::browser_closeall().await;
@@ -586,9 +784,13 @@ fn spider_with_multiple_threads_stop(app: AppHandle) -> Result<String, tauri::Er
         .unwrap();
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let mut state_ = state.lock().unwrap();
-        state_.is_spider_running = false;
+        let state_ = state.lock();
+        if state_.is_ok() {
+            let mut state_ = state_.unwrap();
+            state_.is_spider_running = false;
+        }
     }
+
     Ok("Success stop spider".to_string())
 }
 
@@ -615,8 +817,11 @@ fn spider_with_multiple_threads(
     let length = cookies_stack.len();
     {
         let state = GLOBAL_APP_STATE.get().unwrap().clone();
-        let mut state_ = state.lock().unwrap();
-        state_.is_spider_running = true;
+        let state_ = state.lock();
+        if state_.is_ok() {
+            let mut state_ = state_.unwrap();
+            state_.is_spider_running = true;
+        }
     }
 
     for th in 0..threads {
@@ -628,16 +833,19 @@ fn spider_with_multiple_threads(
         let _options = options.clone();
         thread::spawn(move || {
             let mut rng = rand::rng();
-            let rand_number = rng.random_range(3000..8000);
+            let rand_number = rng.random_range(5000..10000);
             std::thread::sleep(Duration::from_millis(rand_number));
             app_.emit("log", format!("线程{:?}开始采集", th)).unwrap();
             loop {
                 {
                     let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                    let state_ = state.lock().unwrap();
-                    if state_.is_spider_running == false {
-                        app_.emit("log", format!("结束{:?}线程", th)).unwrap();
-                        break;
+                    let state_ = state.lock();
+                    if state_.is_ok() {
+                        let state_ = state_.unwrap();
+                        if state_.is_spider_running == false {
+                            app_.emit("log", format!("结束{:?}线程", th)).unwrap();
+                            break;
+                        }
                     }
                 }
 
@@ -686,10 +894,13 @@ fn spider_with_multiple_threads(
                     if people_limit < display_value {
                         {
                             let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                            let mut state_ = state.lock().unwrap();
-                            state_.limit_room += 1;
-                            state_.total += 1;
-                            app_.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
+                            let state_ = state.lock();
+                            if state_.is_ok() {
+                                let mut state_ = state_.unwrap();
+                                state_.limit_room += 1;
+                                state_.total += 1;
+                                app_.emit("spider", json!({"total": state_.total, "allowed_count":state_.allowed_count, "fd_count":state_.fd_count, "allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
+                            }
                         }
                         continue;
                     }
@@ -697,7 +908,7 @@ fn spider_with_multiple_threads(
                     let index = i % length;
                     let cookie__ = _m_cookie_stack.get(index).unwrap().to_string();
                     let mut rng = rand::rng();
-                    let rand_number = rng.random_range(800..=2000);
+                    let rand_number = rng.random_range(900..=2000);
                     let json_data = json!({
                         "room_id": room_id.to_string(),
                         "web_rid":web_rid.to_string(),
@@ -717,14 +928,17 @@ fn spider_with_multiple_threads(
 
                     {
                         let state = GLOBAL_APP_STATE.get().unwrap().clone();
-                        let mut state_ = state.lock().unwrap();
-                        state_.total += room_count;
-                        app_.emit(
-                            "log",
-                            format!("本轮采集完成，线程结束，采集房间数: {}", room_count),
-                        )
-                        .unwrap();
-                        app_.emit("spider", json!({"total":state_.total, "allowed_count": state_.allowed_count, "fd_count":state_.fd_count,"allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
+                        let state_ = state.lock();
+                        if state_.is_ok() {
+                            let mut state_ = state_.unwrap();
+                            state_.total += room_count;
+                            app_.emit(
+                                "log",
+                                format!("本轮采集完成，线程结束，采集房间数: {}", room_count),
+                            )
+                            .unwrap();
+                            app_.emit("spider", json!({"total":state_.total, "allowed_count": state_.allowed_count, "fd_count":state_.fd_count,"allowed_urls": state_.room_list.len() + state_.room_list_used.len()})).unwrap();
+                        }
                     }
                     let payload = format!(
                         "web rid: {:?} room id: {:?} title: {:?} owner_nick {:?} user count {:?}",
@@ -732,6 +946,7 @@ fn spider_with_multiple_threads(
                     );
                     app_.emit("log", payload).unwrap();
                 }
+                std::thread::sleep(Duration::from_millis(200));
             }
         });
     }
@@ -741,7 +956,18 @@ fn spider_with_multiple_threads(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
+
     builder
+        .on_window_event(|w, event| {
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    //api.prevent_close();
+                    println!("windows label is: {:?}", w.label());
+                    std::process::exit(0);
+                }
+                _ => {}
+            }
+        })
         .setup(|app| {
             let app_state = Arc::new(Mutex::new(AppState::default()));
             // store in tauri managed state as well as global OnceLock for handlers
@@ -757,7 +983,9 @@ pub fn run() {
             fetch_bitbrowser_group,
             spider_with_multiple_threads_stop,
             spider_with_multiple_threads,
+            restart_error_handler,
             get_ip,
+            test_auto_run,
             restart_window,
             sync_server_room,
             bit_group_browsers,

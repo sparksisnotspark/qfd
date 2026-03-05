@@ -151,6 +151,7 @@ pub fn parse_luckbox_info(
     room_id: &str,
     web_rid: &str,
     cookie: &str,
+    min_avg_diamond: u64,
     min_diamond: u64,
 ) -> Result<serde_json::Value, MyError> {
     let url = format!("https://live.douyin.com/webcast/luckybox/box/list/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=web_live&cookie_enabled=true&screen_width=1680&screen_height=1050&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=142.0.0.0&room_id={}", room_id);
@@ -168,6 +169,7 @@ pub fn parse_luckbox_info(
         .header(reqwest::header::COOKIE, cookie)
         .send()?;
     let json = resp.json::<serde_json::Value>()?;
+    println!("lucky box info is: {:?}", json);
     let data = json["data"].as_array();
     if data.is_none() {
         return Err(MyError::StringError("无数据".to_string()));
@@ -179,7 +181,8 @@ pub fn parse_luckbox_info(
         let box_type = i["box_type"].as_i64().unwrap();
         if box_type == 0 {
             all_gift = false;
-        } else { //如果不是钻石的，就跳到下一个
+        } else {
+            //如果不是钻石的，就跳到下一个
             continue;
         }
         let business_type = i["business_type"].as_i64().unwrap();
@@ -192,11 +195,17 @@ pub fn parse_luckbox_info(
             .unwrap();
         let diamond_count = i["diamond_count"].as_u64().unwrap();
 
+        if diamond_count < min_diamond {
+            //println!( "diamond count {} is less than min diamond {}", diamond_count, min_diamond);
+            println!("钻石数量太少 {:?} {:?}", diamond_count, min_diamond);
+            continue;
+        }
+
         let pack_count_u64 = pack_count.parse::<u64>().unwrap();
 
         let avg_diamond = (diamond_count as f64) / (pack_count_u64 as f64);
 
-        if avg_diamond.round() < min_diamond as f64 {
+        if avg_diamond.round() < min_avg_diamond as f64 {
             //println!( "avg diamond {} is less than min diamond {}", avg_diamond, min_diamond);
             continue;
         }
@@ -208,7 +217,7 @@ pub fn parse_luckbox_info(
 
         //println!( "box type is: {:?} pack count {:?} diamond_count {:?} send time {:?} delay time {:?} room url {:?}", box_type, pack_count, diamond_count, send_time, delay_time, room_url);
 
-        let json_data = json!({"room_url":room_url, "room_id":room_id, "web_rid":web_rid, "pack_count":pack_count, "diamond_count": diamond_count, "title":title, "send_time":send_time, "delay":delay_time});
+        let json_data = json!({"room_url":room_url, "room_id":room_id, "web_rid":web_rid, "pack_count":pack_count_u64, "diamond_count": diamond_count, "title":title, "send_time":send_time, "delay":delay_time});
         packet_list.push(json_data);
     }
 
@@ -242,6 +251,7 @@ pub fn parse_lottery_info(
     people_limit: u64,
     winning_ratio: u64,
     min_avg_diamond: u64,
+    min_diamond: u64,
 ) -> Result<serde_json::Value, MyError> {
     let url = format!("https://live.douyin.com/webcast/lottery/melon/lottery_info/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=web_live&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=Win32&browser_name=Chrome&browser_version=141.0.0.0&room_id={}&query_from=1&msToken=RAyuluDXqzOK2qujtiZCq9HHm1pbAM_Da8umCUHWr4V55TUEhlWs2EgcgliOavYKkeEuRqCWRxd7plgF0vt0oMjA3pofShhVSMihz7o6X19vhADQM6qtYn_yBYaiFbPoNGvXUHekTF4I2dKvMT8YaYdwlopoRtKtrVwv_vuc2pd9tVNtT1xWgw%3D%3D&a_bogus=mX0fgwWJEZR5ed%2FSmO4LeA2U4uEMrT8yfMixbc5u7PKhOhFP7WN%2FBrcxaxoV%2F%2FVKnup0hoV7pDzAbEnc0xXT1l9pLmhDSFG6yG2c9tso8ZH4GsJ2XNf8CJSEFiPYUAGYm5AniMW51sMeIdOWIHCzAB3HF%2FvxRRjdMH-JVMYjE9u40C8jio%2FIaV72Ph0qPf%3D%3D", room_id);
     let client = reqwest::blocking::Client::new();
@@ -280,6 +290,11 @@ pub fn parse_lottery_info(
                     need_diamond = 1;
                 }
             });
+
+            if prize_count < min_diamond as i64 {
+                println!("总钻石数量太少 {:?} {:?}", prize_count, min_diamond);
+                return Err(MyError::StringError("总钻石数量太少".to_string()));
+            }
 
             //println!( "only big package {:?} people limit {:?}", only_big_packet, people_limit);
 

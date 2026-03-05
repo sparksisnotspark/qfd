@@ -2,7 +2,6 @@ use lazy_regex::regex_is_match;
 use rand::Rng;
 use reqwest::{header, Client, Error};
 use serde_json::json;
-use std::arch::x86_64::_mm_move_epi64;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, error, os::windows::process::CommandExt, process::Stdio, thread};
 use tauri::{AppHandle, Emitter};
@@ -35,6 +34,9 @@ pub enum MyError {
 
     #[error("serder json error")]
     SerdeError(#[from] serde_json::Error),
+
+    #[error("Url loading error")]
+    UrlLoadingError,
 }
 
 pub fn bitbrowser_api_check(path: &str) -> Result<(), Box<dyn error::Error>> {
@@ -238,7 +240,7 @@ pub async fn start_selenium_chrome(
     let driver;
     let res = WebDriver::new(server_url.clone(), caps.clone()).await;
     if res.is_err() {
-        browser_close(browser_id).await;
+        let _ = browser_close(browser_id).await;
         tokio::time::sleep(Duration::from_millis(300)).await;
         let res = WebDriver::new(server_url.clone(), caps.clone()).await;
         driver = res.unwrap();
@@ -320,10 +322,10 @@ pub async fn hb_logic(
 
     let rg_ = driver.goto(room_url).await;
     if rg_.is_err() {
-        return Err(MyError::StringError("进直播间出错".to_string()));
+        return Err(MyError::UrlLoadingError);
     }
 
-    sleep(Duration::from_secs(1)).await;
+    sleep(Duration::from_secs(3)).await;
 
     let dy_name = options["dy_name"].as_str().unwrap();
     let dy_account = options["dy_account"].as_str().unwrap();
@@ -331,14 +333,16 @@ pub async fn hb_logic(
     let _ = driver.enter_default_frame().await;
     let el_ = driver
         .query(By::Css("div.redpacket"))
-        .wait(Duration::from_secs(3), Duration::from_millis(200))
+        .wait(Duration::from_secs(15), Duration::from_millis(200))
         .first()
         .await;
     if el_.is_err() {
         return Err(MyError::StringError("未找到红包元素".to_string()));
     }
     let el = el_.unwrap();
-    el.wait_until().clickable().await?;
+    el.wait_until().clickable().await;
+
+    sleep(Duration::from_secs(3)).await;
 
     let x = driver
         .action_chain()
@@ -651,17 +655,35 @@ pub async fn fd_logic(
     options: &serde_json::Value,
 ) -> Result<(), MyError> {
     println!("Executing QFD action...");
-    driver.goto(room_url).await?;
+    let g = driver.goto(room_url).await;
+    if g.is_err() {
+        return Err(MyError::UrlLoadingError);
+    }
+
     sleep(Duration::from_secs(3)).await;
     let join_fans_group = options["join_fans_group"].as_bool().unwrap_or(false);
     let dy_name = options["dy_name"].as_str().unwrap_or("");
     let dy_account = options["dy_account"].as_str().unwrap_or("");
+
+    let send_time = options["send_time"].as_u64().unwrap();
+    let delay = options["delay"].as_u64().unwrap();
+    let min_time = options["min_time"].as_u64().unwrap(); //最小过期时间
+    let now_time = SystemTime::now();
+    let since_the_epoch = now_time.duration_since(UNIX_EPOCH).expect("Time went back");
+    let now_secs = since_the_epoch.as_secs();
+    if (send_time + delay - now_secs) < min_time {
+        return Err(MyError::StringError("开奖时间太近".to_string()));
+    }
+
     let ele = driver
         .query(By::Css("div.dVxrjT_h"))
-        .wait(Duration::from_secs(10), Duration::from_millis(50))
+        .wait(Duration::from_secs(15), Duration::from_millis(100))
         .first()
         .await?;
-    ele.wait_until().clickable().await?;
+
+    let _ = ele.wait_until().clickable().await;
+
+    sleep(Duration::from_secs(2)).await;
 
     driver
         .action_chain()
@@ -670,11 +692,13 @@ pub async fn fd_logic(
         .perform()
         .await?;
 
+
     let ele = driver
         .query(By::Css("div.QOARtY3v"))
-        .wait(Duration::from_secs(5), Duration::from_millis(50))
+        .wait(Duration::from_secs(15), Duration::from_millis(100))
         .first()
         .await;
+
     if ele.is_err() {
         let _ = app.emit(
             "db",
@@ -682,12 +706,13 @@ pub async fn fd_logic(
         );
         return Err(MyError::StringError("未找到福袋".to_string()));
     }
+
     app.emit("db", json!({"seq":seq, "action":"update", "canyu_count":1, "dy_name":dy_name, "dy_account": dy_account}))
         .unwrap();
     let btn = ele.unwrap();
     let _ = btn.wait_until().clickable().await?;
     let txt = btn.text().await?;
-    let list = vec!["分享直播间".to_string(), "提升亲密度".to_string()];
+    let list = vec!["分享直播间".to_string(), "提升亲密度".to_string(), "粉丝团".to_string()];
     if list.contains(&txt) && join_fans_group == false {
         // 需要加粉丝团 或提升亲密度
         println!("加粉丝团");
@@ -831,10 +856,13 @@ pub async fn parse_user_diamond(driver: &WebDriver) -> Result<i32, MyError> {
 }
 
 pub async fn parse_user_info(driver: &WebDriver) -> Result<(String, String), MyError> {
-    driver
+    let r = driver
         .goto("https://www.douyin.com/user/self")
-        .await
-        .unwrap();
+        .await;
+    if r.is_err() {
+        return Err(MyError::StringError("打开个人主页失败".to_string()));
+    }
+        
     let _ = tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     let name = driver
         .query(By::Css(".arnSiSbK > span:nth-child(1) > span:nth-child(1) > span:nth-child(1) > span:nth-child(1)"))
