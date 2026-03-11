@@ -313,7 +313,7 @@ pub async fn hb_logic(
     let min_time = options["min_time"].as_u64().unwrap(); //最小过期时间
     let max_time = options["max_time"].as_u64().unwrap(); //最大延迟时间
     let use_time_strict = options["use_time_strict"].as_bool().unwrap_or(false);
-    let now_time = SystemTime::now();
+    let now_time: SystemTime = SystemTime::now();
     let since_the_epoch = now_time.duration_since(UNIX_EPOCH).expect("Time went back");
     let now_secs = since_the_epoch.as_secs();
     if (send_time + delay - now_secs) < min_time {
@@ -333,14 +333,15 @@ pub async fn hb_logic(
     let _ = driver.enter_default_frame().await;
     let el_ = driver
         .query(By::Css("div.redpacket"))
-        .wait(Duration::from_secs(15), Duration::from_millis(200))
+        .wait(Duration::from_secs(30), Duration::from_millis(200))
         .first()
         .await;
+
     if el_.is_err() {
         return Err(MyError::StringError("未找到红包元素".to_string()));
     }
     let el = el_.unwrap();
-    el.wait_until().clickable().await;
+    let _ = el.wait_until().clickable().await;
 
     sleep(Duration::from_secs(3)).await;
 
@@ -695,7 +696,7 @@ pub async fn fd_logic(
 
     let ele = driver
         .query(By::Css("div.QOARtY3v"))
-        .wait(Duration::from_secs(15), Duration::from_millis(100))
+        .wait(Duration::from_secs(30), Duration::from_millis(100))
         .first()
         .await;
 

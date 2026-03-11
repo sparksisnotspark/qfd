@@ -253,7 +253,7 @@
             <el-form :model="cookiesForm" label-width="100" size="small" inline ref="cookieFormRef"
                 style="width: 500px">
                 <el-form-item prop="cookie">
-                    <el-input v-model="cookiesForm.cookie"  placeholder="输入广场cookie" clearable></el-input>
+                    <el-input v-model="cookiesForm.cookie" type="textarea" :rows="4" :cols="100" placeholder="输入广场cookie一行一个" clearable></el-input>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="saveCookieHandle" :loading="saveCookieLoading">保存</el-button>
@@ -381,7 +381,12 @@ const saveCookieHandle = async () => {
     if (cookiesForm.cookie != "") {
         saveCookieLoading.value = true;
         try {
-            cookiesList.value.push({ ck: cookiesForm.cookie + "" });
+            let cookies_str = cookiesForm.cookie.split("\n").filter((item) => item.trim() != "");
+
+            cookies_str.forEach((item) => {
+                cookiesList.value.push({ ck: item.trim() });
+            });
+            
             await store.setStoreKey("cookies", cookiesList.value);
             cookiesForm.cookie = "";
             ElMessage.success("保存成功");
