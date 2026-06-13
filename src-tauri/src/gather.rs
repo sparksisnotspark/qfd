@@ -8,69 +8,35 @@ use std::{collections::HashMap, time::Duration};
 const API_URL: &str = "http://193.134.211.160:8787";
 const DEFAULT_TIMEOUT: u64 = 60;
 
-pub async fn async_fetch_room(
-    app_key: &str,
-    tp: &str,
-    params: &serde_json::Value,
-) -> Result<serde_json::Value, MyError> {
+pub async fn async_fetch_room(app_key: &str, tp: &str, params: &serde_json::Value) -> Result<serde_json::Value, MyError> {
     let url: String = format!("{}/api/fetchRoom", API_URL);
     let client = Client::new();
     let json = json!({"type":tp, "app_key":app_key, "params":params});
-    let resp = client
-        .get(url)
-        .json(&json)
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .header("app-key", app_key)
-        .header("Content-Type", "application/json")
-        .send()
-        .await?;
+    let resp = client.get(url).json(&json).timeout(Duration::from_secs(DEFAULT_TIMEOUT)).header("app-key", app_key).header("Content-Type", "application/json").send().await?;
     let json = resp.json::<serde_json::Value>().await?;
     Ok(json)
 }
 
-pub async fn fetch_server_rooms(
-    app_key: &str,
-    tp: &str,
-    id: u64,
-) -> Result<serde_json::Value, MyError> {
+pub async fn fetch_server_rooms(app_key: &str, tp: &str, id: u64) -> Result<serde_json::Value, MyError> {
     let url: String = format!("{}/api/serverRooms", API_URL);
+    println!("api server room url is: {:?}", url);
     let client = Client::new();
     let json = json!({"tp":tp, "app_key":app_key, "id":id});
-    let resp = client
-        .get(url)
-        .json(&json)
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .header("app-key", app_key)
-        .header("Content-Type", "application/json")
-        .send()
-        .await?;
+    let resp = client.get(url).json(&json).timeout(Duration::from_secs(DEFAULT_TIMEOUT)).header("app-key", app_key).header("Content-Type", "application/json").send().await?;
     let json = resp.json::<serde_json::Value>().await?;
     Ok(json)
 }
 
 pub async fn get_ip() -> Result<serde_json::Value, MyError> {
     let client = Client::new();
-    let resp = client
-        .get("http://ip-api.com/json")
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .send()
-        .await?
-        .json()
-        .await?;
+    let resp = client.get("http://ip-api.com/json").timeout(Duration::from_secs(DEFAULT_TIMEOUT)).header(reqwest::header::CONTENT_TYPE, "application/json").send().await?.json().await?;
     Ok(resp)
 }
 
 pub async fn check_token_expired(app_key: &str) -> Result<serde_json::Value, MyError> {
     let url: String = format!("{}/api/checkToken", API_URL);
     let client = Client::new();
-    let resp = client
-        .get(url)
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .header("Content-Type", "application/json")
-        .header("app-key", app_key)
-        .send()
-        .await?;
+    let resp = client.get(url).timeout(Duration::from_secs(DEFAULT_TIMEOUT)).header("Content-Type", "application/json").header("app-key", app_key).send().await?;
     let json = resp.json::<serde_json::Value>().await?;
     Ok(json)
 }
@@ -79,13 +45,7 @@ pub fn sync_fetch_room(app_key: &str, tp: &str) -> Result<serde_json::Value, MyE
     let url: String = format!("{}/api/fetchRoom", API_URL);
     let client = reqwest::blocking::Client::new();
     let json = json!({"type":tp, "app_key":app_key});
-    let resp = client
-        .get(url)
-        .json(&json)
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .header("app-key", app_key)
-        .header("Content-Type", "application/json")
-        .send()?;
+    let resp = client.get(url).json(&json).timeout(Duration::from_secs(DEFAULT_TIMEOUT)).header("app-key", app_key).header("Content-Type", "application/json").send()?;
     let json = resp.json::<serde_json::Value>()?;
     Ok(json)
 }
@@ -124,55 +84,36 @@ pub fn sync_fetch_dy_room(cookie: String) -> Result<serde_json::Value, MyError> 
     Ok(json)
 }
 
-pub async fn user_login_system(
-    username: &str,
-    password: &str,
-    token: &str,
-) -> Result<serde_json::Value, MyError> {
+pub async fn user_login_system(username: &str, password: &str, token: &str) -> Result<serde_json::Value, MyError> {
     let url = format!("{}/login", API_URL);
     let client = Client::new();
     let mut params = HashMap::new();
     params.insert("username", username);
     params.insert("password", password);
     params.insert("token", token);
-    let resp = client
-        .post(url)
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .form(&params)
-        .send()
-        .await?
-        .json::<serde_json::Value>()
-        .await
-        .unwrap();
+    let resp = client.post(url).timeout(Duration::from_secs(DEFAULT_TIMEOUT)).form(&params).send().await?.json::<serde_json::Value>().await.unwrap();
     Ok(resp)
 }
 
-pub fn parse_luckbox_info(
-    room_id: &str,
-    web_rid: &str,
-    cookie: &str,
-    min_avg_diamond: u64,
-    min_diamond: u64,
-) -> Result<serde_json::Value, MyError> {
-    let url = format!("https://live.douyin.com/webcast/luckybox/box/list/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=web_live&cookie_enabled=true&screen_width=1680&screen_height=1050&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=142.0.0.0&room_id={}", room_id);
+pub fn parse_luckbox_info(room_id: &str, web_rid: &str, cookie: &str, min_avg_diamond: u64, min_diamond: u64) -> Result<serde_json::Value, MyError> {
+    let url = format!(
+        "https://live.douyin.com/webcast/luckybox/box/list/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=web_live&cookie_enabled=true&screen_width=1680&screen_height=1050&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=142.0.0.0&room_id={}",
+        room_id
+    );
     let client = reqwest::blocking::Client::new();
     let resp = client
         .get(url)
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
-        .header(
-            reqwest::header::REFERER,
-            format!("https://live.douyin.com/{}", web_rid),
-        )
+        .header(reqwest::header::REFERER, format!("https://live.douyin.com/{}", web_rid))
         .timeout(Duration::from_secs(30))
         .header(reqwest::header::COOKIE, cookie)
         .send()?;
     let json = resp.json::<serde_json::Value>()?;
-    println!("lucky box info is: {:?}", json);
     let data = json["data"].as_array();
     if data.is_none() {
-        return Err(MyError::StringError("无数据".to_string()));
+        return Err(MyError::StringError("data里数据为空".to_string()));
     }
     let data = data.unwrap();
     let mut packet_list: Vec<serde_json::Value> = vec![];
@@ -190,9 +131,7 @@ pub fn parse_luckbox_info(
         let pack_count = i["biz_extra"].as_str().unwrap();
         let extra_ = serde_json::from_str::<serde_json::Value>(pack_count).unwrap();
 
-        let pack_count = extra_["tags"][business_type.to_string().as_str()]
-            .as_str()
-            .unwrap();
+        let pack_count = extra_["tags"][business_type.to_string().as_str()].as_str().unwrap();
         let diamond_count = i["diamond_count"].as_u64().unwrap();
 
         if diamond_count < min_diamond {
@@ -221,7 +160,7 @@ pub fn parse_luckbox_info(
         packet_list.push(json_data);
     }
 
-    if all_gift && data.len() > 0 {
+    if all_gift && !data.is_empty() {
         return Err(MyError::StringError("都是礼物红包，下一个".to_string()));
     }
 
@@ -235,40 +174,26 @@ pub fn parse_luckbox_info(
         return Ok(out);
     }
 
-    if data.len() == 0 {
+    if data.is_empty() {
         return Err(MyError::StringError("没有找到红包信息".to_string()));
     }
 
     Err(MyError::StringError("每个包小于最小的红包".to_string()))
 }
 
-pub fn parse_lottery_info(
-    room_id: &str,
-    web_rid: &str,
-    cookie: &str,
-    only_big_packet: bool,
-    join_fans_group: bool,
-    people_limit: u64,
-    winning_ratio: u64,
-    min_avg_diamond: u64,
-    min_diamond: u64,
-) -> Result<serde_json::Value, MyError> {
-    let url = format!("https://live.douyin.com/webcast/lottery/melon/lottery_info/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=web_live&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=Win32&browser_name=Chrome&browser_version=141.0.0.0&room_id={}&query_from=1&msToken=RAyuluDXqzOK2qujtiZCq9HHm1pbAM_Da8umCUHWr4V55TUEhlWs2EgcgliOavYKkeEuRqCWRxd7plgF0vt0oMjA3pofShhVSMihz7o6X19vhADQM6qtYn_yBYaiFbPoNGvXUHekTF4I2dKvMT8YaYdwlopoRtKtrVwv_vuc2pd9tVNtT1xWgw%3D%3D&a_bogus=mX0fgwWJEZR5ed%2FSmO4LeA2U4uEMrT8yfMixbc5u7PKhOhFP7WN%2FBrcxaxoV%2F%2FVKnup0hoV7pDzAbEnc0xXT1l9pLmhDSFG6yG2c9tso8ZH4GsJ2XNf8CJSEFiPYUAGYm5AniMW51sMeIdOWIHCzAB3HF%2FvxRRjdMH-JVMYjE9u40C8jio%2FIaV72Ph0qPf%3D%3D", room_id);
-    let client = reqwest::blocking::Client::new();
-    let agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
-    let resp = client
-        .get(url)
-        .header(
-            reqwest::header::REFERER,
-            format!("https://live.douyin.com/{}", web_rid),
-        )
-        .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
-        .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
-        .header(reqwest::header::USER_AGENT, agent)
-        .header(reqwest::header::COOKIE, cookie)
-        .send()?;
+pub fn parse_lottery_info(room_id: &str, web_rid: &str, cookie: &str, only_big_packet: bool, join_fans_group: bool, people_limit: u64, winning_ratio: u64, min_avg_diamond: u64, min_diamond: u64) -> Result<serde_json::Value, MyError> {
+    let url = format!("https://live.douyin.com/webcast/lottery/melon/lottery_info/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&enter_from=web_live&cookie_enabled=true&screen_width=2560&screen_height=1440&browser_language=zh-CN&browser_platform=Win32&browser_name=Edge&browser_version=146.0.0.0&room_id={}&query_from=1&msToken=Y3A-t0l_rgehf_gFyA_HTgr-gDsXJmq9VWSAV-ga4qJyE0QJlLcunslBQUIZztgZdwpx7DVA3WZAmRRuXGwFT3CB8olPJQDaIqX-JHulcFGbR-PSXLhNSWoMTgsR3vqy1SG5_fZS2vwSqiArj2TrpeUOyRfV23kpdPtfUcn4aMEdQ2bbB7kOYg%3D%3D&a_bogus=EJ4nkwSJmqQjCdMG8OJBC71U8X9%2FNPuyxHTdS7%2FK7NYdPZMGS8PozNc5GoFa4BRg2SpzkoIHZVlMYdVcuVUw1AnkomkDuY0fDtVCnUmLh1qXbe4mgrDMCgsFqXsC8cGqlA55iIy6ZUrLZfd-kHQD%2FQ1CCKOC5YuhK1xWkMuSP9a61MyAEpcePdGDPhGK0G97", room_id);
+    println!("lottery info url is: {:?} room id is:  {:?}", url, room_id);
 
-    let json = resp.json::<serde_json::Value>()?;
+    let client = reqwest::blocking::Client::new();
+    let agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    let resp = client.get(url).header(reqwest::header::REFERER, format!("https://live.douyin.com/{}", web_rid)).timeout(Duration::from_secs(DEFAULT_TIMEOUT)).header(reqwest::header::USER_AGENT, agent).header(reqwest::header::COOKIE, cookie).send()?;
+
+    let res = resp.text()?;
+    println!("lottery info res is: {:?}", res);
+
+    //let json = resp.json::<serde_json::Value>()?;
+    let json = serde_json::from_str::<serde_json::Value>(&res)?;
     if json["data"].as_object().is_some() {
         let info = json["data"].as_object().unwrap();
         if info.contains_key("lottery_info") {
@@ -298,7 +223,7 @@ pub fn parse_lottery_info(
 
             //println!( "only big package {:?} people limit {:?}", only_big_packet, people_limit);
 
-            if need_diamond > 0 && join_fans_group == false {
+            if need_diamond > 0 && !join_fans_group {
                 println!("需要加粉丝团, 粉丝团没有打勾");
                 return Err(MyError::StringError("需要加粉丝团".to_string()));
             }
@@ -308,33 +233,18 @@ pub fn parse_lottery_info(
             if per_pack < min_avg_diamond as f64 {
                 // 大于等于表示OK
                 println!("福袋金额太小 {:?} {:?}", per_pack, min_avg_diamond);
-                return Err(MyError::StringError(
-                    format!(
-                        "福袋金额太小 per pack {:?} lucky count: {:?}",
-                        per_pack, lucky_count
-                    )
-                    .to_string(),
-                ));
+                return Err(MyError::StringError(format!("福袋金额太小 per pack {:?} lucky count: {:?}", per_pack, lucky_count).to_string()));
             }
 
             let rate = lucky_count as f64 / candidate_num as f64;
 
             if rate * 100.0 < winning_ratio as f64 {
                 println!("中奖率问题 {:?} {:?}", rate * 100.0, winning_ratio);
-                return Err(MyError::StringError(
-                    format!(
-                        "中奖率太低 lucky count{:?}  抢的人{:?}",
-                        lucky_count, candidate_num
-                    )
-                    .to_string(),
-                ));
+                return Err(MyError::StringError(format!("中奖率太低 lucky count{:?}  抢的人{:?}", lucky_count, candidate_num).to_string()));
             }
 
             let title = s.join(",");
-            println!(
-                "{:?} {:?} {:?} {:?} {:?}",
-                prize_count, lucky_count, draw_time, start_time, candidate_num
-            );
+            println!("{:?} {:?} {:?} {:?} {:?}", prize_count, lucky_count, draw_time, start_time, candidate_num);
             let ret_json = json!({
                 "prize_count": prize_count,
                 "lucky_count": lucky_count, 
@@ -359,16 +269,11 @@ pub fn parse_lottery_info(
 pub async fn upload_server(params: serde_json::Value, token: &str) {
     let url = "{}/updateRoom";
     let client = Client::new();
-    let _ = client
-        .post(url)
-        .header("app-key", token)
-        .json(&params)
-        .send()
-        .await;
+    let _ = client.post(url).header("app-key", token).json(&params).send().await;
 }
 
 pub async fn add_one_room(token: &str, params: serde_json::Value) -> Result<(), MyError> {
-    let url = format!("{}/api/addRoom", API_URL);
+    let url: String = format!("{}/api/addRoom", API_URL);
     println!("token is: {:?}", token);
     let client = Client::new();
     let r = client

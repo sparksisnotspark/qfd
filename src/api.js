@@ -2,10 +2,11 @@ import axios from "axios";
 import dayjs from "dayjs";
 import { db, getDb } from "./db";
 import { history } from "./db/schema";
-import { eq, sql, and, param, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { getVersion } from '@tauri-apps/api/app';
 
-const API_URL = "http://193.134.211.160:8787";
+export const API_URL = "http://193.134.211.160:8787";
+//export const API_URL = "http://127.0.0.1:8787";
 
 const service = axios.create({ baseURL: API_URL, timeout: 5000 });
 
@@ -32,15 +33,16 @@ export const init_sqlite_db = async (db) => {
 };
 export const init_browser_seq = async (windows) => {
     for (const w of windows) {
-        let exists = await check_record_exists(w.seq);
-        console.log(exists, "是否存存", w);
-        if (!exists) {
-            let now = dayjs().format("YYYY-MM-DD");
-            let r = await db
-                .insert(history)
-                .values({ seq: `${w.seq + ""}`, create_at: now })
-                .returning();
-            console.log(r, "returning");
+        let now = dayjs().format("YYYY-MM-DD");
+        try {
+            let sqlite = await getDb();
+            await sqlite.execute(
+                `INSERT OR IGNORE INTO history(seq, create_at) VALUES (?, ?)`,
+                [`${w.seq + ""}`, now],
+            );
+            await sqlite.close();
+        } catch (e) {
+            console.log(e, "init browser seq exception");
         }
     }
 };
@@ -58,16 +60,16 @@ export const clean_task_name = async (date) => {
         let x = await db.execute(sql_, [create_at]);
         console.log(x, "clean task name info", create_at);
     } catch (e) {
-        console.log(e, "clean exception");  
+        console.log(e, "clean exception");
     }
 }
 
-export const delete_data = async(ids) => {
+export const delete_data = async (ids) => {
     try {
         let r = await db.delete(history).where(inArray(history.id, ids));
         console.log(r, "delete data result");
     } catch (e) {
-        console.log("exception",e)
+        console.log("exception", e)
     }
 }
 
@@ -94,16 +96,13 @@ export const db_action_dispatcher = async (event) => {
         let dy_name = payload.dy_name;
         let dy_account = payload.dy_account;
         let seq = payload.seq;
-        let exists = await check_record_exists(seq);
-        if (exists) {
-            return;
-        }
         try {
-            let x = await db
-                .insert(history)
-                .values({ dy_name, dy_account, seq, create_at })
-                .returning();
-            console.log(x);
+            let sqlite = await getDb();
+            await sqlite.execute(
+                `INSERT OR IGNORE INTO history(dy_name, dy_account, seq, create_at) VALUES (?, ?, ?, ?)`,
+                [dy_name, dy_account, seq, create_at],
+            );
+            await sqlite.close();
         } catch (e) {
             console.log(e, "--------------------------------");
         }
@@ -176,7 +175,7 @@ export const db_action_dispatcher = async (event) => {
 };
 
 export const check_record_exists = async (seq, now) => {
-    if ( !now ) {
+    if (!now) {
         now = dayjs().format("YYYY-MM-DD");
     }
     console.log("check exists now is: ", now);
@@ -189,8 +188,8 @@ export const check_record_exists = async (seq, now) => {
 };
 
 export const db_insert_history = async (params) => {
-    sql = `insert into history(dy_name, dy_account, seq, create_at) values (?,?,?,?)`;
-    await db.execute(sql, [
+    let sql_ = `insert into history(dy_name, dy_account, seq, create_at) values (?,?,?,?)`;
+    await db.execute(sql_, [
         params.get(
             "dy_name",
             params.get("dy_account"),
@@ -207,3 +206,6 @@ export const api_logout = async (data) => service.post("/auth/logout", data);
 export const api_register = async (data) => service.post("/auth/register", data);
 export const api_unbound = async (data) => service.post("/auth/unbound", data);
 export const api_rechage = async (data) => service.post("/auth/recharge", data);
+export const api_token_expired_at = async (config = {}) => service.post("/auth/tokenExpiredAt", config);
+export const api_update_caiji = async (data) => service.post("/api/caijiStatus", data);
+export const api_get_caiji_status = async (data) => service.get("/api/caijiStatus", data);

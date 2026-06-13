@@ -1,21 +1,24 @@
 <template>
     <div class="main" style="padding: 10px">
-        <el-tabs v-model="activeName" size="small">
+        <el-tabs v-model="activeName">
             <el-tab-pane label="详细数据" name="records" style="width: 100%">
-                <el-form size="small" :model="searchOptions" :inline="true" class="demo-form-inline">
+                <el-form size="default" :model="searchOptions" :inline="true" class="demo-form-inline">
                     <el-form-item>
                         <el-input style="width: 120px" v-model="searchOptions.dy_name" placeholder="抖音名称" clearable />
                     </el-form-item>
                     <el-form-item>
-                        <el-input placeholder="抖音号" v-model="searchOptions.dy_account" clearable />
+                        <el-input placeholder="抖音号" style="width: 120px;" v-model="searchOptions.dy_account"
+                            clearable />
                     </el-form-item>
                     <el-form-item>
-                        <el-date-picker v-model="searchOptions.create_at" placeholder="选择日期" type="date" />
+                        <el-date-picker v-model="searchOptions.create_at" style="width: 140px;" placeholder="选择日期"
+                            type="date" />
                     </el-form-item>
                     <el-form-item>
                         <el-button type="primary" :icon="Search" @click="searchHandler">查询</el-button>
                         <el-button type="info" @click="onSubmit">重置</el-button>
                         <el-button type="danger" @click="delete_select_data">删除</el-button>
+                        <el-button type="danger" @click="stop_select_window">停止</el-button>
                         <el-button type="success" @click="restart_windows">重启</el-button>
                         <el-checkbox v-model="auto_refresh" style="margin-left: 20px"
                             @change="autoRefreshChange">自动刷新</el-checkbox>
@@ -26,23 +29,27 @@
                     <el-table-column type="selection" width="50" align="center" label="#" />
                     <el-table-column prop="seq" label="C#" align="center" width="50" show-overflow-tooltip />
                     <el-table-column prop="dy_name" label="抖音名称" width="80" align="center" show-overflow-tooltip />
-                    <el-table-column prop="dy_account" label="抖音号" width="100" align="center" show-overflow-tooltip />
+                    <el-table-column prop="dy_account" label="抖音号" width="80" align="center" show-overflow-tooltip />
 
-                    <el-table-column prop="task_name" label="任务名称" align="center" width="100" />
-                    <el-table-column prop="task_msg" min-width="200" label="任务信息" show-overflow-tooltip />
+                    <el-table-column prop="task_name" label="任务名称" align="center" width="80" show-overflow-tooltip />
+                    <el-table-column prop="task_msg" min-width="140" label="任务信息" show-overflow-tooltip />
+                    <!--
                     <el-table-column prop="canyu_count" label="FD参与数" width="100" align="center" sortable />
 
                     <el-table-column prop="win_count" label="FD中次数" width="100" align="center" sortable />
 
                     <el-table-column prop="huode_diamond_count" label="FD获得钻石" align="center" width="120" sortable />
+                    -->
 
-                    <el-table-column prop="hongbao_canyu_count" label="HB参与数" align="center" width="100" sortable />
-                    <el-table-column prop="hongbao_win_count" label="HB中次数" align="center" width="100" sortable />
+                    <el-table-column prop="hongbao_canyu_count" label="HB参与" align="center" width="90" sortable />
+                    <el-table-column prop="hongbao_win_count" label="HB中数" align="center" width="90" sortable />
 
-                    <el-table-column prop="hongbao_huode_diamond_count" label="HB得钻石" width="100" align="center"
-                        sortable />
+                    <el-table-column prop="hongbao_huode_diamond_count" label="获得钻石" width="90" show-overflow-tooltip
+                        align="center" sortable />
 
+                    <!--
                     <el-table-column prop="xiaohao_diamond_count" label="消耗数量" width="100" align="center" sortable />
+                    -->
                     <el-table-column prop="count_num" fixed="right" align="center" label="实时" sortable width="80" />
                     <el-table-column prop="create_at" fixed="right" label="查询时间" width="100" />
                 </el-table>
@@ -60,7 +67,7 @@
                 </div>
             </el-tab-pane>
             <el-tab-pane label="任务面板" name="task">
-                <el-container size="small">
+                <el-container size="default">
                     <el-main>
                         <div class="config-box mb-10">
                             <p>选择分组</p>
@@ -75,12 +82,14 @@
 
                             <p>浏览器功能配置</p>
                             <div>
-                                <el-form size="small" v-model="browserOptions" :inline="true" :label-position="top"
+                                <el-form size="default" v-model="browserOptions" :inline="true" :label-position="top"
                                     :disabled="browserOptionsDisabled" label-width="100px" class="browser-config-form">
                                     <el-form-item label="任务类型">
                                         <el-radio-group v-model="browserOptions.tp">
                                             <el-radio value="hb" label="红包"></el-radio>
+                                            <!--
                                             <el-radio value="fd" label="福袋"></el-radio>
+                                            -->
                                         </el-radio-group>
                                     </el-form-item>
 
@@ -106,8 +115,8 @@
                                     </el-form-item>
 
                                     <el-form-item label="下发次数">
-                                        <el-input-number v-model="browserOptions.can_used_times" :min="1" :max="20" type="number"
-                                            placeholder="下发次数" />
+                                        <el-input-number v-model="browserOptions.can_used_times" :min="1" :max="20"
+                                            type="number" placeholder="下发次数" />
                                     </el-form-item>
 
                                 </el-form>
@@ -124,24 +133,26 @@
                                 ">
                                 <span style="font-weight: bold">是否开启采集功能?
                                 </span>
-                                <el-switch size="small" v-model="spiderOptions.enable_spider" inline-prompt
+                                <el-switch size="default" v-model="spiderOptions.enable_spider" inline-prompt
                                     active-text="采集中..." inactive-text="开启采集" :before-change="cjBFHandler"></el-switch>
                             </div>
                             <div>
                                 <el-form v-model="spiderOptions" :disabled="spiderEditDisabled" :inline="true"
-                                    :label-position="top" size="small" label-width="100px"
+                                    :label-position="top" size="default" label-width="100px"
                                     class="collector-config-form">
                                     <el-form-item label="多线程数量">
                                         <el-input-number style="width: 100px" v-model="spiderOptions.thread_number
-                                            " :min="1" :max="10" placeholder="采集线程数量" type="number"></el-input-number>
+                                            " :min="1" :max="20" placeholder="采集线程数量" type="number"></el-input-number>
                                     </el-form-item>
+                                    <!--
                                     <el-form-item label="中奖比例">
                                         <el-input-number :min="1" v-model="spiderOptions.winning_ratio
                                             " :max="100" style="width: 100px" placeholder="中奖比例"
                                             type="number"></el-input-number>
                                     </el-form-item>
+                                    -->
                                     <el-form-item label="人数限制">
-                                        <el-input-number v-model="spiderOptions.people_limit" style="width: 100px"
+                                        <el-input-number v-model="spiderOptions.people_limit" style="width: 140px"
                                             :min="1" placeholder="人数限制" :step="10" type="number"></el-input-number>
                                     </el-form-item>
                                     <el-form-item label="最小时间">
@@ -153,31 +164,39 @@
                                             v-model="spiderOptions.max_time" placeholder="最大时间"
                                             type="number"></el-input-number>
                                     </el-form-item>
+                                    <!--
                                     <el-form-item label="严格">
                                         <el-switch v-model="spiderOptions.use_time_strict"></el-switch>
                                     </el-form-item>
+                                    -->
 
-                                    <el-form-item label="红包人均">
+                                    <el-form-item label="人均最小">
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
                                             placeholder="红包人均钻石" v-model="spiderOptions.min_avg_diamond
                                                 "></el-input-number>
                                     </el-form-item>
 
+                                    <!--
                                     <el-form-item label="福袋人均">
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
                                             placeholder="福袋人均钻石" v-model="spiderOptions.fd_min_avg_diamond
                                                 "></el-input-number>
                                     </el-form-item>
+                                    -->
+
                                     <el-form-item label="最低包数">
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
                                             placeholder="最低包的个数" v-model="spiderOptions.min_packet_number">
                                         </el-input-number>
                                     </el-form-item>
+
                                     <el-form-item label="最低钻石">
                                         <el-input-number style="width: 100px" :min="1" :max="100" type="number"
                                             placeholder="最低钻石数" v-model="spiderOptions.min_diamond">
                                         </el-input-number>
                                     </el-form-item>
+
+                                    <!--
 
                                     <el-form-item label="只采集大包">
                                         <el-switch v-model="spiderOptions.only_big_packet"></el-switch>
@@ -185,6 +204,7 @@
                                     <el-form-item label="参与粉丝团">
                                         <el-switch v-model="spiderOptions.join_fans_group"></el-switch>
                                     </el-form-item>
+                                -->
                                     <el-form-item label="直播广场CK">
                                         <el-button style="width: 200px" type="primary"
                                             @click="openCKManager">管理CK</el-button>
@@ -196,7 +216,7 @@
                         <div class="config-box">
                             <p>窗口整理配置</p>
                             <div>
-                                <el-form size="small" v-model="windowOptions" :inline="true" :label-position="top"
+                                <el-form size="default" v-model="windowOptions" :inline="true" :label-position="top"
                                     label-width="100px" class="window-config-form">
                                     <el-form-item label="自动排列窗口">
                                         <el-switch v-model="windowOptions.auto_arrange"></el-switch>
@@ -219,17 +239,17 @@
                     </el-main>
                     <el-aside width="140px">
                         <div class="control-box" style="margin-top: 20px">
-                            <el-button class="cb" type="primary" size="small" :icon="VideoPlay"
+                            <el-button class="cb" type="primary" size="default" :icon="VideoPlay"
                                 :loading="startAutomationLoading" @click="startAutomation"
                                 :disabled="start_btn_disabled">启动自动化</el-button>
-                            <el-button class="cb" type="danger" size="small" :icon="VideoPause"
+                            <el-button class="cb" type="danger" size="default" :icon="VideoPause"
                                 @click="stopAutomation">停止自动化</el-button>
-                            <el-button class="cb" type="primary" size="small" :icon="VideoPlay"
-                                @click="re_start_automation">启动未成功窗口</el-button>
-                            <el-button class="cb" type="info" size="small" @click="fetchGroups">获取分组</el-button>
-                            <el-button class="cb" type="info" size="small" @click="flexable_windows">排列窗口</el-button>
-                            <el-button class="cb" size="small" type="success" @click="saveSettings">保存参数</el-button>
-                            <el-button class="cb" size="small" type="primary" @click="logoutHandler" :icon="User"
+                            <el-button class="cb" type="primary" size="default" :icon="VideoPlay"
+                                @click="re_start_automation">启动未成功</el-button>
+                            <el-button class="cb" type="info" size="default" @click="fetchGroups">获取分组</el-button>
+                            <el-button class="cb" type="info" size="default" @click="flexable_windows">排列窗口</el-button>
+                            <el-button class="cb" size="default" type="success" @click="saveSettings">保存参数</el-button>
+                            <el-button class="cb" size="default" type="primary" @click="logoutHandler" :icon="User"
                                 :loading="logoutLoading">用户退出</el-button>
                         </div>
                         <div>
@@ -239,28 +259,60 @@
                                 <p>有用直播间: {{ allowed_count }}</p>
                                 <p>有福袋播间: {{ fd_count }}</p>
                                 <p>当前版本: v{{ app_version }}</p>
+                                <p class="update-line"v-if="has_new_version">
+                                    <el-tag style="cursor: pointer"
+                                        link
+                                        type="danger"
+                                        :loading="update_checking"
+                                        @click="checkUpdate">
+                                        发现新版本 v{{ latest_version }} 
+                                    </el-tag>
+                                </p>
                                 <p>IP: {{ cur_remote_ip }}</p>
                                 <el-button link @click="showLog">查看日志</el-button>
+                                <!--
                                 <el-button link @click="testAutoRun">測試自動</el-button>
+                                -->
                             </div>
                         </div>
                     </el-aside>
                 </el-container>
             </el-tab-pane>
+            <el-tab-pane label="直播间列表" name="zblist">
+                <el-container>
+                    <el-table :data="roomList" style="width:100%" :row-class-name="roomRowClassName">
+                        <el-table-column prop="room_url" label="房间url" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="room_id" width="200" show-overflow-tooltip label="房间ID"></el-table-column>
+                        <el-table-column prop="web_rid" width="180" label="WEB_RID"></el-table-column>
+                        <el-table-column prop="used_times" width="140" label="使用次数"></el-table-column>
+                        <el-table-column prop="expired_at_text" width="180" label="过期时间"></el-table-column>
+                    </el-table>
+                </el-container>
+            </el-tab-pane>
         </el-tabs>
 
-        <el-dialog v-model="showCookieManagerDialog">
-            <el-form :model="cookiesForm" label-width="100" size="small" inline ref="cookieFormRef"
-                style="width: 500px">
+        <el-dialog v-model="showCookieManagerDialog" style="width: 700px;">
+            <el-form :model="cookiesForm" label-width="100" size="small" inline ref="cookieFormRef">
                 <el-form-item prop="cookie">
-                    <el-input v-model="cookiesForm.cookie" type="textarea" :rows="4" :cols="100" placeholder="输入广场cookie一行一个" clearable></el-input>
+                    <el-input v-model="cookiesForm.cookie" type="textarea" :rows="4" :cols="80"
+                        placeholder="输入广场cookie一行一个" clearable></el-input>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="saveCookieHandle" :loading="saveCookieLoading">保存</el-button>
                 </el-form-item>
             </el-form>
-            <el-table size="small" border :data="cookiesList">
-                <el-table-column prop="ck" show-overflow-tooltip label="内容" />
+
+            <div style="margin-bottom:10px;">
+                <el-button size="small" type="success" @click="toggleAllCK(cookiesList)">全选</el-button>
+                <el-button size="small" type="danger" @click="deleteCookieSelected" :icon="Delete">删除</el-button>
+            </div>
+
+            <el-table size="small" border :data="cookiesList" ref="ckTableRef"
+                @selection-change="handleSelectionChange">
+                <el-table-column type="selection" width="30" />
+                <el-table-column prop="ck" show-overflow-tooltip label="内容(裁取前100字符)">
+                    <template #default="scope"> {{ scope.row.ck.substr(0, 100) }} </template>
+                </el-table-column>
                 <el-table-column label="操作" width="80" align="center">
                     <template #default="scope">
                         <el-button link type="danger" size="small"
@@ -269,15 +321,22 @@
                 </el-table-column>
             </el-table>
         </el-dialog>
-        <div class="logger" ref="loggerRef" v-if="showLogDiv">
-            <p v-for="i in logs" :key="i">{{ i }}</p>
-        </div>
+        <el-dialog v-model="showLogDiv" title="运行日志" width="900px" destroy-on-close>
+            <div style="margin-bottom: 10px;">
+                <el-button size="small" type="danger" @click="clearLogs">清除日志</el-button>
+                <el-button size="small" type="primary" @click="scrollToBottom">滚动到底部</el-button>
+            </div>
+            <div class="logger-dialog" ref="loggerRef">
+                <p v-for="i in logs" :key="i">{{ i }}</p>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
 <script setup>
 import { reactive, ref, onMounted, nextTick, watch, onUnmounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import {
     Search,
@@ -291,7 +350,7 @@ import { useRouter } from "vue-router";
 import { getDb } from "../db";
 import dayjs from "dayjs";
 import { listen } from "@tauri-apps/api/event";
-import { db_action_dispatcher, init_sqlite_db, clean_task_name, getAppVersion, delete_data } from "../api";
+import { init_sqlite_db, clean_task_name, getAppVersion, delete_data, API_URL, api_token_expired_at } from "../api";
 
 const max_length = 50;
 const logs = ref([]);
@@ -306,10 +365,17 @@ const fd_count = ref(0);
 const cookiesList = ref([]);
 const cur_remote_ip = ref("");
 const allowed_urls = ref(0);
+const remote_caiji_status = ref(0);
+const ckTableRef = ref();
+const ckTableListSelection = ref([]);
+
+const roomList = ref([])
+let roomListInterval = null
 
 const showLog = async () => {
     showLogDiv.value = !showLogDiv.value;
 };
+
 
 const get_ip = async () => {
     try {
@@ -324,6 +390,116 @@ const get_ip = async () => {
         ElMessage.warning("获取IP失败");
     }
 };
+
+
+const normalizeRoomRow = (item) => {
+    const nowTs = dayjs().unix();
+    const canUsedTimes = Number(item.can_used_times ?? browserOptions.can_used_times ?? 0);
+    const usedTimes = Number(item.used_times || 0);
+    const expired = Number(item.expired_at) <= nowTs;
+    const overUsed = usedTimes >= canUsedTimes;
+    const available = !expired && usedTimes < canUsedTimes;
+
+    let statusText = "可用";
+    if (expired && overUsed) {
+        statusText = "已过期/超次数";
+    } else if (expired) {
+        statusText = "已过期";
+    } else if (overUsed) {
+        statusText = "超次数";
+    }
+
+    return {
+        ...item,
+        expired,
+        overUsed,
+        available,
+        status_text: statusText,
+        can_used_times: canUsedTimes,
+        expired_at_text: dayjs.unix(Number(item.expired_at)).format("YYYY-MM-DD HH:mm:ss"),
+    };
+};
+
+const roomRowClassName = ({ row }) => {
+    if (!row.available) {
+        return "room-row-danger";
+    }
+    return "";
+};
+
+const sortRoomList = (list) => {
+    return [...list].sort((a, b) => {
+        if (a.expired !== b.expired) {
+            return a.expired ? 1 : -1;
+        }
+        return Number(a.expired_at) - Number(b.expired_at);
+    });
+};
+
+const filterRoomList = (list) => {
+    const nowTs = dayjs().unix();
+    return list.filter((item) => Number(item.expired_at || 0) - nowTs > 30);
+};
+
+const get_room_list_fn = async () => {
+    try {
+        let res = await invoke("get_room_list");
+        let result = JSON.parse(res);
+        roomList.value = sortRoomList(
+            filterRoomList(result).map(item => normalizeRoomRow(item))
+        );
+    } catch (e) {
+        console.log("exception for this", e);
+    }
+};
+
+const get_room_list_used_fn = async () => {
+    try {
+        let res = await invoke("get_room_list_used");
+        let result = JSON.parse(res);
+        roomList.value = sortRoomList(
+            filterRoomList(result).map(item => normalizeRoomRow(item))
+        );
+    } catch (e) {
+        console.log("exception for this", e);
+    }
+};
+
+
+const toggleAllCK = (rows) => {
+    if (rows) {
+        rows.forEach(row => {
+            ckTableRef.value.toggleRowSelection(row, undefined)
+        });
+    }
+}
+
+
+const deleteCookieSelected = async () => {
+    ElMessageBox.confirm("确定要删除？").then(async () => {
+        ckTableListSelection.value.forEach(row => {
+            cookiesList.value.forEach((ckRow, i) => {
+                if (ckRow.ck == row.ck) {
+                    cookiesList.value[i].del = true;
+                }
+            })
+        })
+        cookiesList.value = cookiesList.value.filter(item => !item.del);
+        try {
+            await store.set("cookies", cookiesList.value);
+            await store.save();
+            ElMessage.success("删除成功");
+        } catch (e) {
+            ElMessage.warning("error", e);
+        }
+    }).catch(() => {
+        ElMessage.info("删除取消了！");
+    });
+}
+
+const handleSelectionChange = (val) => {
+    ckTableListSelection.value = val;
+}
 
 const getMacAddress = async () => {
     try {
@@ -355,6 +531,10 @@ const scrollToBottom = () => {
     });
 };
 
+const clearLogs = () => {
+    logs.value = [];
+};
+
 const store = useAppStore();
 
 const cookiesForm = reactive({
@@ -366,6 +546,29 @@ let spiderEditDisabled = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(100);
 const historyTotal = ref(0);
+
+const stop_select_window = async () => {
+
+    if (multiple_windows_select.value.length <= 0) {
+        ElMessage.warning("请选择要停止的窗口");
+        return;
+    }
+
+    let seqs = multiple_windows_select.value.map(x => x.seq);
+    let group_id = groupSelection.value;
+    ElMessageBox.confirm("确定停止选中的窗口吗？").then(async () => {
+        try {
+            let res = await invoke("stop_select_windows", {
+                params: JSON.stringify({ group_id, seqs })
+            });
+            ElMessage.success("停止成功")
+        } catch (e) {
+            ElMessage.warning(`${e} 停止失败`);
+        }
+    }).catch(() => {
+        ElMessage.warning("已取消停止");
+    });
+}
 
 const historyPagerSizeChange = async (val) => {
     pageSize.value = val;
@@ -384,9 +587,9 @@ const saveCookieHandle = async () => {
             let cookies_str = cookiesForm.cookie.split("\n").filter((item) => item.trim() != "");
 
             cookies_str.forEach((item) => {
-                cookiesList.value.push({ ck: item.trim() });
+                cookiesList.value.push({ ck: item.trim(), del: false });
             });
-            
+
             await store.setStoreKey("cookies", cookiesList.value);
             cookiesForm.cookie = "";
             ElMessage.success("保存成功");
@@ -438,6 +641,10 @@ const cjLoading = ref(false);
 const showCookieManagerDialog = ref(false); //显示管理 dialog
 const app_version = ref("");
 const auto_refresh = ref(false);
+const update_checking = ref(false);
+const update_info = ref(null);
+const latest_version = ref("");
+const has_new_version = ref(false);
 
 let searchOptions = reactive({
     dy_name: "",
@@ -486,6 +693,79 @@ const task_store_key = "task_store_key";
 
 const onSubmit = async () => {
     await searchHandler();
+};
+
+const compareVersion = (current, latest) => {
+    const a = `${current}`.split('.').map(n => Number(n || 0));
+    const b = `${latest}`.split('.').map(n => Number(n || 0));
+    const len = Math.max(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+        const av = a[i] || 0;
+        const bv = b[i] || 0;
+        if (av < bv) return -1;
+        if (av > bv) return 1;
+    }
+    return 0;
+};
+
+const checkUpdate = async () => {
+    update_checking.value = true;
+    try {
+        const url = `${API_URL}/app/version.json`;
+        const res = await invoke("fetch_update_info", { url });
+        const info = JSON.parse(res);
+        update_info.value = info;
+
+        const latestVersion = info.version || info.latest_version;
+        const downloadUrl = info.download_url || info.url;
+        const changelog = info.changelog || info.desc || "";
+        latest_version.value = latestVersion || "";
+
+        if (!latestVersion) {
+            ElMessage.warning("未获取到版本信息");
+            return;
+        }
+
+        if (compareVersion(app_version.value, latestVersion) >= 0) {
+            has_new_version.value = false;
+            ElMessage.success(`当前已是最新版本 v${app_version.value}`);
+            return;
+        }
+        has_new_version.value = true;
+
+        await ElMessageBox.confirm( `发现新版本 v${latestVersion} ${changelog || "暂无更新说明"} 是否立即打开下载地址？`, "版本更新",
+            {
+                confirmButtonText: "立即下载",
+                cancelButtonText: "取消",
+                type: "info",
+            }
+        );
+
+        if (downloadUrl) {
+            await openUrl(downloadUrl);
+        } else {
+            ElMessage.warning("未提供下载地址");
+        }
+    } catch (e) {
+        console.log("check update error", e);
+        ElMessage.error("检查更新失败");
+    } finally {
+        update_checking.value = false;
+    }
+};
+
+const checkUpdateSilently = async () => {
+    try {
+        const url = `${API_URL}/app/version.json`;
+        const res = await invoke("fetch_update_info", { url });
+        const info = JSON.parse(res);
+        update_info.value = info;
+        const latestVersion = info.version || info.latest_version || "";
+        latest_version.value = latestVersion;
+        has_new_version.value = !!latestVersion && compareVersion(app_version.value, latestVersion) < 0;
+    } catch (_e) {
+        has_new_version.value = false;
+    }
 };
 
 const saveDefaultParams = async () => {
@@ -612,6 +892,7 @@ const cjBFHandler = () => {
                     spiderEditDisabled.value = false;
                     await invoke("spider_with_multiple_threads_stop");
                     ElMessage.success("采集停止成功");
+                    //await api_update_caiji({running:0});
                     return resolve(true);
                 } else {
                     //采集未启动，则启动采集
@@ -622,6 +903,7 @@ const cjBFHandler = () => {
                             gatherType: browserOptions.tp,
                         });
                         ElMessage.success("采集运行成功");
+                        //await api_update_caiji({running:1});
                         return resolve(true);
                     } catch (e) {
                         spiderEditDisabled.value = false;
@@ -673,11 +955,16 @@ const stopAutomation = async () => {
 
 const testAutoRun = async () => {
     try {
+        let res = await invoke('sync_server_room', { tp: 'hb' });
+        console.log("test auto run sync server room result is: ", res);
+        /*
         let res = await invoke("test_auto_run", { params: JSON.stringify({
             id: "f5c4cfd7eb924a77b35eeb3cbb1cdd9c",
             seq: 18,
         }) });
+ 
         console.log("test auto run result is: ", res);
+        */
         ElMessage.success("自动运行测试成功");
     } catch (e) {
         console.log("error for this is: ", e);
@@ -731,7 +1018,6 @@ const sumHistory = (params) => {
     const { columns, data } = params;
     var sums = [];
     if (data.length > 0) {
-        console.log("this is here for log", data);
 
         let count_num = 0;
         let canyu_count = 0;
@@ -752,6 +1038,7 @@ const sumHistory = (params) => {
             xiaohao_diamond_count += v.xiaohao_diamond_count;
             huode_diamond_count += v.huode_diamond_count;
         });
+        /*
         sums = [
             "合计",
             "",
@@ -769,6 +1056,21 @@ const sumHistory = (params) => {
             count_num,
             "",
         ];
+        */
+        sums = [
+            "合计",
+            data.length,
+            "",
+            "",
+            "",
+            "",
+            hongbao_canyu_count,
+            hongbao_win_count,
+            hongbao_huode_diamond_count,
+            count_num,
+            "",
+        ];
+
     } else {
         sums = [];
     }
@@ -804,6 +1106,8 @@ const openCKManager = () => {
 };
 
 let intervalId = null;
+let tokenCheckInterval = null;
+const tokenExpiredHandled = ref(false);
 
 let init_db = async () => {
     let db = await getDb();
@@ -813,8 +1117,49 @@ let init_db = async () => {
 
 const check_token_expired = async () => {
     try {
-        let res = await invoke("check_token_expired", {});
-        console.log("res of the best is: ", res);
+        if (tokenExpiredHandled.value || !store.token) {
+            return;
+        }
+
+        const res = await api_token_expired_at({
+            keycode: store.token, 
+        });
+        const payload = res?.data ?? {};
+        const data = payload?.data ?? {};
+        const expired = Number(data.is_expired) === 1;
+
+        if (!expired) {
+            return;
+        }
+
+        tokenExpiredHandled.value = true;
+        if (tokenCheckInterval) {
+            clearInterval(tokenCheckInterval);
+            tokenCheckInterval = null;
+        }
+
+        try {
+            await invoke("spider_with_multiple_threads_stop");
+        } catch (err) {
+            console.log("stop spider on token expired error", err);
+        }
+
+        try {
+            await invoke("stop_automation");
+        } catch (err) {
+            console.log("stop automation on token expired error", err);
+        }
+
+        browserOptionsDisabled.value = false;
+        groupSelectFormDisabled.value = false;
+        start_btn_disabled.value = false;
+        spiderEditDisabled.value = false;
+        spiderOptions.enable_spider = false;
+        await stop_sync_server_data();
+        await clean_task_name();
+        ElMessage.error("Token 已过期，已停止工作，请重新登录");
+        await store.logout();
+        router.push("/login");
     } catch (e) {
         console.log("exception of this:", e);
     }
@@ -867,13 +1212,24 @@ onMounted(async () => {
     await get_ip();
 
     app_version.value = await getAppVersion();
+    await checkUpdateSilently();
 
     try {
         await loadCookies();
         await loadParameters();
+        await get_room_list_fn();
     } catch (e) {
         console.log("exception for loading default params!");
     }
+
+    roomListInterval = setInterval(async () => {
+        await get_room_list_fn();
+    }, 5000);
+
+    tokenCheckInterval = setInterval(async () => {
+        await check_token_expired();
+    }, 5000);
+    await check_token_expired();
 
     disableRefresh();
 
@@ -892,7 +1248,9 @@ onMounted(async () => {
     });
 
     dbListener = listen("db", async (event) => {
-        await db_action_dispatcher(event);
+        await invoke("process_history_event_command", {
+            payload: JSON.stringify(event.payload),
+        });
     });
 
     listen("restart", async (event) => {
@@ -900,6 +1258,17 @@ onMounted(async () => {
         ElMessage.warning(`窗口${event.payload.seq}异常，正在重启...${JSON.stringify(event.payload)}`);
         await restart_dead_windows(event.payload);
     });
+});
+
+onUnmounted(() => {
+    if (roomListInterval) {
+        clearInterval(roomListInterval);
+        roomListInterval = null;
+    }
+    if (tokenCheckInterval) {
+        clearInterval(tokenCheckInterval);
+        tokenCheckInterval = null;
+    }
 });
 
 const restart_dead_windows = async (params) => {
@@ -1015,6 +1384,10 @@ const delete_select_data = async () => {
 onUnmounted(() => {
     if (intervalId) {
         clearInterval(intervalId);
+    }
+    if (tokenCheckInterval) {
+        clearInterval(tokenCheckInterval);
+        tokenCheckInterval = null;
     }
     if (spiderListener) {
         spiderListener.then((unlisten) => {
@@ -1207,13 +1580,8 @@ p {
     }
 }
 
-.logger {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    z-index: 1000;
-    height: 150px;
+.logger-dialog {
+    height: 420px;
     border: 1px solid #333;
     overflow-y: auto;
     background-color: #1e1e1e;
@@ -1222,5 +1590,9 @@ p {
     font-size: 12px;
     padding: 10px;
     box-sizing: border-box;
+}
+
+:deep(.el-table .room-row-danger) {
+    background-color: #ffecec;
 }
 </style>

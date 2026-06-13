@@ -14,6 +14,7 @@
     "core:window:allow-create",
     "store:default",
     "sql:allow-execute",
-    "sql:default"
+    "sql:default",
+    "dialog:default"
   ]
 }
