@@ -1,0 +1,26 @@
+# Go
+/server/api
+/server/api.exe
+/server/bin/
+*.exe
+*.test
+*.out
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+web/dist/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
