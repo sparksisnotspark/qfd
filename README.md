@@ -1,5 +1,7 @@
 # qfd · 小桔福袋助手
 
+> 🚀 推荐：[**KokoVPN**](https://kokovpn.com/) — 稳定好用的 VPN，源码见 [GitHub](https://github.com/sparksisnotspark/kokovpn)。
+
 抖音直播间福袋 / 红包自动参与工具，基于 **Tauri 2 + Rust + Vue 3** 的 Windows 桌面应用。
 程序通过 [比特浏览器](https://www.bitbrowser.cn/)（BitBrowser）指纹浏览器的本地 API 批量拉起窗口，
 再用 `chromedriver` 接管页面，按配置条件自动完成直播间福袋 / 红包的参与。
